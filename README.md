@@ -9,7 +9,8 @@ RAG-based Portfolio/
 ├── deploy/
 │   └── local/            # pgvector PostgreSQL (docker compose)
 ├── docs/                 # 설계 문서
-│   └── architecture.md   # RAG 동작 흐름과 계층 구조
+│   ├── architecture.md   # RAG 동작 흐름과 계층 구조
+│   └── local-guide.md    # 로컬 실행, 데이터 적재, 확인 명령어
 └── projects/
     ├── system/           # FastAPI 기반 RAG 백엔드
     └── web/              # 채팅 화면 (HTML / CSS / JS)
@@ -17,7 +18,9 @@ RAG-based Portfolio/
 
 ## 실행 방법
 
-자세한 실행 방법은 각 폴더의 README를 참고하세요.
+처음부터 실행하는 전체 순서와 확인 명령어는 **[docs/local-guide.md](docs/local-guide.md)** 에 정리돼 있습니다.
+
+각 구성 요소의 상세 설명:
 - **DB (pgvector)**: [deploy/local/README.md](deploy/local/README.md)
 - **System (FastAPI)**: [projects/system/README.md](projects/system/README.md)
 - **Web**: 백엔드 서버가 `projects/web`을 함께 제공하므로 따로 실행할 필요가 없습니다.

@@ -10,7 +10,8 @@ system/
 ├── dataset/
 │   └── profile/            # 자기소개 원문 (마크다운, ## 섹션 단위로 청킹)
 ├── scripts/
-│   └── ingest.py           # 문서 → 임베딩 → pgvector 저장
+│   ├── ingest.py           # 문서 → 임베딩 → pgvector 저장
+│   └── search.py           # 질문을 넣어 검색 결과·유사도 확인
 ├── src/                    # 비즈니스 로직
 │   ├── domain.py           # 도메인 객체 (Chunk, SearchResult)
 │   ├── settings.py         # 환경 설정
