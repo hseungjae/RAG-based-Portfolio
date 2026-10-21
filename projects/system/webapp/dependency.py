@@ -23,4 +23,4 @@ def retriever_manager_dependency(request: Request) -> RetrieverManager:
 
 @lru_cache
 def chat_manager_dependency() -> ChatManager:
-    return ChatManager(settings.owner_name, settings.claude_model, settings.anthropic_api_key)
+    return ChatManager(settings.owner_name, settings.gemini_model, settings.gemini_api_key)

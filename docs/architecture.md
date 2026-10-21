@@ -10,7 +10,7 @@ sequenceDiagram
     participant Voyage as Voyage AI
     participant DB as PostgreSQL + pgvector
     participant Chat as ChatManager
-    participant Claude as Claude API
+    participant Gemini as Gemini API
 
     Web->>Router: POST /api/chat {question, history}
     Router->>Retriever: search(question, 직전 질문)
@@ -21,8 +21,8 @@ sequenceDiagram
     Retriever-->>Router: 상위 4개 청크
     Router-->>Web: event: sources
     Router->>Chat: stream_answer(question, history, 청크)
-    Chat->>Claude: 시스템 프롬프트 + <documents> + 질문
-    Claude-->>Chat: 텍스트 스트림
+    Chat->>Gemini: 시스템 프롬프트 + <documents> + 질문
+    Gemini-->>Chat: 텍스트 스트림
     Chat-->>Router: 텍스트 조각
     Router-->>Web: event: delta (반복) → done
 ```

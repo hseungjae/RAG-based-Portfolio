@@ -1,6 +1,6 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
-anthropic>=0.70
+google-genai>=1.0
 python-dotenv>=1.0
 voyageai>=0.3
 asyncpg>=0.29

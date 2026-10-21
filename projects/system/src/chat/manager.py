@@ -1,8 +1,9 @@
-"""검색 결과를 근거로 Claude 답변을 스트리밍한다."""
+"""검색 결과를 근거로 Gemini 답변을 스트리밍한다."""
 
 from collections.abc import AsyncIterator
 
-import anthropic
+from google import genai
+from google.genai import errors, types
 
 from src.chat.prompt import build_system_prompt, build_user_message
 from src.domain import SearchResult
@@ -12,7 +13,7 @@ class ChatManager:
     def __init__(self, owner: str, model: str, api_key: str | None):
         self.model = model
         self.system_prompt = build_system_prompt(owner)
-        self.client = anthropic.AsyncAnthropic(api_key=api_key) if api_key else None
+        self.client = genai.Client(api_key=api_key) if api_key else None
 
     @property
     def llm_enabled(self) -> bool:
@@ -29,27 +30,34 @@ class ChatManager:
             yield preview or "관련 내용을 찾지 못했어요."
             return
 
-        messages = [*history, {"role": "user", "content": build_user_message(question, results)}]
+        # Gemini는 assistant 대신 model 역할 이름을 쓴다
+        contents = [
+            types.Content(role="model" if t["role"] == "assistant" else "user",
+                          parts=[types.Part(text=t["content"])])
+            for t in history
+        ]
+        contents.append(types.Content(role="user",
+                                      parts=[types.Part(text=build_user_message(question, results))]))
+        config = types.GenerateContentConfig(
+            system_instruction=self.system_prompt,
+            max_output_tokens=2048,
+        )
+
+        answered = False
         try:
-            async with self.client.beta.messages.stream(
-                model=self.model,
-                max_tokens=4096,
-                system=self.system_prompt,
-                messages=messages,
-                # 짧은 Q&A라 낮은 effort로 충분하고 응답도 빠르다
-                output_config={"effort": "low"},
-                # 안전 분류기가 거절하면 서버가 다른 모델로 자동 재시도
-                betas=["server-side-fallback-2026-07-01"],
-                fallbacks="default",
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield text
-                final = await stream.get_final_message()
-            if final.stop_reason == "refusal":
-                yield "\n\n죄송해요, 이 질문에는 답변드리기 어려워요."
-        except anthropic.RateLimitError as e:
-            raise RuntimeError("지금 요청이 많아요. 잠시 후 다시 시도해주세요.") from e
-        except anthropic.APIStatusError as e:
-            raise RuntimeError(f"AI 서버 오류가 발생했어요. ({e.status_code})") from e
-        except anthropic.APIConnectionError as e:
-            raise RuntimeError("AI 서버에 연결하지 못했어요.") from e
+            stream = await self.client.aio.models.generate_content_stream(
+                model=self.model, contents=contents, config=config,
+            )
+            async for chunk in stream:
+                if chunk.text:
+                    answered = True
+                    yield chunk.text
+        except errors.APIError as e:
+            if e.code == 429:
+                raise RuntimeError("오늘 사용할 수 있는 무료 요청을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.") from e
+            if e.code in (400, 401, 403) and "API key" in (e.message or ""):
+                raise RuntimeError("Gemini API 키가 올바르지 않아요. 서버 설정을 확인해주세요.") from e
+            raise RuntimeError(f"AI 서버 오류가 발생했어요. ({e.code})") from e
+        if not answered:
+            # 안전 필터 등으로 답변이 비어 있는 경우
+            yield "죄송해요, 이 질문에는 답변드리기 어려워요."
