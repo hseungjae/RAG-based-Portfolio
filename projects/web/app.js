@@ -5,6 +5,7 @@ const sendBtn = document.getElementById("send");
 const resetBtn = document.getElementById("reset");
 const themeBtn = document.getElementById("theme");
 let history = []; // 최근 대화만 서버에 보내서 후속 질문 맥락으로 사용
+const SLOW_MS = 10_000; // 이 시간이 지나도 첫 글자가 없으면 지연 안내를 보여준다
 let busy = false;
 
 fetch("/api/config").then(r => r.json()).then(c => {
@@ -136,6 +137,16 @@ async function ask(question) {
   answerEl.appendChild(body);
   let answer = "", sources = [];
 
+  // 무료 Gemini API는 붐빌 때 첫 응답까지 수십 초가 걸리기도 해서, 기다리는 이유를 알려준다
+  const slowTimer = setTimeout(() => {
+    if (answer) return;
+    const note = document.createElement("p");
+    note.className = "slow-note";
+    note.textContent = "답변이 조금 늦어지고 있어요. 무료 AI API(Gemini 무료 플랜)를 사용하고 있어 사용자가 많을 때는 응답이 느려질 수 있어요.";
+    body.appendChild(note);
+    scrollToBottom();
+  }, SLOW_MS);
+
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -172,6 +183,7 @@ async function ask(question) {
     answerEl.classList.add("error");
     body.textContent = e.message;
   } finally {
+    clearTimeout(slowTimer);
     busy = false;
     updateSend();
     input.focus();

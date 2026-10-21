@@ -99,6 +99,7 @@ body.chatting .wrap { padding-top: 24px; }
 .a ul { margin: 4px 0 10px; padding-left: 20px; }
 .a.error { color: var(--danger); }
 .refs { margin-top: 10px; font-size: 13px; color: var(--faint); }
+.slow-note { margin: 2px 0 0; font-size: 13px; color: var(--muted); word-break: keep-all; }
 
 .thinking { display: inline-flex; gap: 5px; padding: 8px 0; }
 .thinking i { width: 5px; height: 5px; border-radius: 50%; background: var(--faint); animation: pulse 1.2s infinite ease-in-out; }
