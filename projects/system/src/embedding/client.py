@@ -5,8 +5,9 @@
 
 from typing import Literal
 
-from google import genai
 from google.genai import errors, types
+
+from src.external_clients.gemini import create_gemini_client
 
 TASK_TYPES = {"document": "RETRIEVAL_DOCUMENT", "query": "RETRIEVAL_QUERY"}
 
@@ -15,7 +16,7 @@ class EmbeddingClient:
     def __init__(self, api_key: str | None, model: str, dimension: int):
         self.model = model
         self.dimension = dimension
-        self.client = genai.Client(api_key=api_key) if api_key else None
+        self.client = create_gemini_client(api_key)
 
     async def embed(self, texts: list[str], input_type: Literal["document", "query"]) -> list[list[float]]:
         if self.client is None:
@@ -29,6 +30,6 @@ class EmbeddingClient:
             result = await self.client.aio.models.embed_content(
                 model=self.model, contents=contents, config=config,
             )
-        except errors.APIError as e:
+        except (errors.APIError, TimeoutError) as e:
             raise RuntimeError("임베딩 서버 오류로 검색하지 못했어요.") from e
         return [e.values for e in result.embeddings]

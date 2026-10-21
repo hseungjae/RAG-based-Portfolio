@@ -17,6 +17,8 @@ system/
 │   ├── settings.py         # 환경 설정
 │   ├── database/
 │   │   └── connection.py   # asyncpg 커넥션 풀 (pgvector 타입 등록)
+│   ├── external_clients/
+│   │   └── gemini.py       # Gemini 클라이언트 (시간 제한, 503 재시도)
 │   ├── embedding/
 │   │   └── client.py       # Gemini 임베딩 (document / query, 1024차원)
 │   ├── chunk/

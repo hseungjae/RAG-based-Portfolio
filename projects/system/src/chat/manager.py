@@ -2,18 +2,18 @@
 
 from collections.abc import AsyncIterator
 
-from google import genai
 from google.genai import errors, types
 
 from src.chat.prompt import build_system_prompt, build_user_message
 from src.domain import SearchResult
+from src.external_clients.gemini import create_gemini_client
 
 
 class ChatManager:
     def __init__(self, owner: str, model: str, api_key: str | None):
         self.model = model
         self.system_prompt = build_system_prompt(owner)
-        self.client = genai.Client(api_key=api_key) if api_key else None
+        self.client = create_gemini_client(api_key)
 
     async def stream_answer(
         self, question: str, history: list[dict], results: list[SearchResult]
@@ -43,6 +43,8 @@ class ChatManager:
                 if chunk.text:
                     answered = True
                     yield chunk.text
+        except TimeoutError as e:
+            raise RuntimeError("AI 서버 응답이 늦어요. 잠시 후 다시 시도해주세요.") from e
         except errors.APIError as e:
             if e.code == 429:
                 raise RuntimeError("오늘 사용할 수 있는 무료 요청을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.") from e

@@ -204,5 +204,6 @@ curl -N -X POST http://localhost:8000/api/chat -H "Content-Type: application/jso
 | "문서 DB에서 검색하지 못했어요" | 테이블이 없거나 DB 연결 실패 | 4-1, 4-2로 확인. 테이블이 없으면 `docker compose down -v && docker compose up -d` 후 다시 적재 |
 | "Gemini API 키가 올바르지 않아요" | `.env`의 `GEMINI_API_KEY` 오류 | AI Studio에서 키 확인 후 `.env` 수정, 서버 재시작 |
 | "무료 요청을 다 썼거나 요청이 많아요" | Gemini 무료 한도 초과 (429) | 잠시 후 다시 시도. 하루 한도는 AI Studio에서 확인 |
+| 답변이 30초 넘게 걸리거나 "AI 서버 응답이 늦어요" | Gemini 무료 플랜이 붐빔 (503 또는 응답 지연) | 503은 자동으로 최대 3번 재시도하고, 60초가 지나면 이 안내를 보여줌. 잠시 후 다시 시도 |
 | 모델 호출 시 404 | 신규 키로는 오래된 모델을 쓸 수 없음 | `GEMINI_MODEL`을 사용 가능한 모델로 변경 |
 | 포트 5433이 이미 사용 중 | 다른 프로그램이 5433 사용 | `docker-compose.yml`의 `"5433:5432"`와 `.env`의 `DATABASE_URL` 포트를 함께 변경 |
