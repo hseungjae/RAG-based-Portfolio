@@ -1,5 +1,5 @@
 -- 컨테이너 최초 실행 시 한 번만 적용된다.
--- 벡터 차원(1024)은 VOYAGE_MODEL 의 출력 차원과 같아야 한다.
+-- 벡터 차원(1024)은 settings.embedding_dimension 과 같아야 한다.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS profile_chunk (

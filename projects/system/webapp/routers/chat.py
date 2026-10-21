@@ -18,8 +18,8 @@ def sse(event: str, data) -> str:
 
 
 @router.get("/config")
-async def config(chat: ChatManager = Depends(chat_manager_dependency)):
-    return {"owner": settings.owner_name, "llm": chat.llm_enabled}
+async def config():
+    return {"owner": settings.owner_name}
 
 
 @router.post("/chat", dependencies=[Depends(rate_limit)])

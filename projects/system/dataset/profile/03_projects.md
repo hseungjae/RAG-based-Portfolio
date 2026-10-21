@@ -20,6 +20,6 @@
 
 ## 자기소개 RAG 챗봇 (2026)
 - 역할: 개인 프로젝트
-- 기술: FastAPI, Gemini API, PostgreSQL + pgvector, Voyage AI 임베딩, HTML/CSS/JS
+- 기술: FastAPI, Gemini API(답변 생성·임베딩), PostgreSQL + pgvector, HTML/CSS/JS
 - 내용: 지금 보고 계신 사이트입니다. 한승재의 자기소개 문서를 섹션 단위로 나눠 검색한 뒤, 관련 내용만 근거로 Gemini가 답변합니다.
 - 포인트: 문서를 섹션 단위로 임베딩해 pgvector에 저장하고, 질문과 코사인 유사도가 높은 섹션을 찾아 답변 근거로 씁니다. 답변마다 참고한 문서 출처를 함께 보여줍니다.

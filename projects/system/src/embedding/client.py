@@ -1,23 +1,34 @@
-"""Voyage AI 임베딩 클라이언트.
+"""Gemini 임베딩 클라이언트.
 
-문서와 질문은 input_type을 다르게 줘야 검색 품질이 좋아진다.
+문서와 질문은 task_type을 다르게 줘야 검색 품질이 좋아진다.
 """
 
 from typing import Literal
 
-import voyageai
+from google import genai
+from google.genai import errors, types
+
+TASK_TYPES = {"document": "RETRIEVAL_DOCUMENT", "query": "RETRIEVAL_QUERY"}
 
 
 class EmbeddingClient:
-    def __init__(self, api_key: str | None, model: str):
+    def __init__(self, api_key: str | None, model: str, dimension: int):
         self.model = model
-        self.client = voyageai.AsyncClient(api_key=api_key, max_retries=2) if api_key else None
+        self.dimension = dimension
+        self.client = genai.Client(api_key=api_key) if api_key else None
 
     async def embed(self, texts: list[str], input_type: Literal["document", "query"]) -> list[list[float]]:
         if self.client is None:
-            raise RuntimeError("VOYAGE_API_KEY가 설정되지 않아 검색을 할 수 없어요.")
+            raise RuntimeError("GEMINI_API_KEY가 설정되지 않아 검색을 할 수 없어요.")
+        # 문자열 리스트를 그대로 넘기면 하나의 벡터로 합쳐지므로 텍스트마다 Content로 감싼다
+        contents = [types.Content(parts=[types.Part(text=t)]) for t in texts]
+        config = types.EmbedContentConfig(
+            task_type=TASK_TYPES[input_type], output_dimensionality=self.dimension,
+        )
         try:
-            result = await self.client.embed(texts, model=self.model, input_type=input_type)
-        except voyageai.error.VoyageError as e:
+            result = await self.client.aio.models.embed_content(
+                model=self.model, contents=contents, config=config,
+            )
+        except errors.APIError as e:
             raise RuntimeError("임베딩 서버 오류로 검색하지 못했어요.") from e
-        return result.embeddings
+        return [e.values for e in result.embeddings]

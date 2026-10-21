@@ -15,21 +15,12 @@ class ChatManager:
         self.system_prompt = build_system_prompt(owner)
         self.client = genai.Client(api_key=api_key) if api_key else None
 
-    @property
-    def llm_enabled(self) -> bool:
-        return self.client is not None
-
     async def stream_answer(
         self, question: str, history: list[dict], results: list[SearchResult]
     ) -> AsyncIterator[str]:
         """답변 텍스트 조각을 차례로 내보낸다. API 오류는 RuntimeError로 바꿔 올린다."""
         if self.client is None:
-            # API 키 없이도 검색 결과는 확인할 수 있는 미리보기 모드
-            preview = "\n\n".join(f"**{r.chunk.title}**\n{r.chunk.content}" for r in results[:2])
-            yield "⚠️ API 키가 설정되지 않아 검색된 원문을 그대로 보여드려요.\n\n"
-            yield preview or "관련 내용을 찾지 못했어요."
-            return
-
+            raise RuntimeError("GEMINI_API_KEY가 설정되지 않았어요.")
         # Gemini는 assistant 대신 model 역할 이름을 쓴다
         contents = [
             types.Content(role="model" if t["role"] == "assistant" else "user",

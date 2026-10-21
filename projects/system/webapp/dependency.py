@@ -11,7 +11,7 @@ from src.settings import settings
 
 @lru_cache
 def embedding_client_dependency() -> EmbeddingClient:
-    return EmbeddingClient(settings.voyage_api_key, settings.voyage_model)
+    return EmbeddingClient(settings.gemini_api_key, settings.embedding_model, settings.embedding_dimension)
 
 
 def retriever_manager_dependency(request: Request) -> RetrieverManager:

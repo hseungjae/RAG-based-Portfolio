@@ -19,11 +19,11 @@ async def main() -> None:
     try:
         manager = RetrieverManager(
             ChunkRepository(pool),
-            EmbeddingClient(settings.voyage_api_key, settings.voyage_model),
+            EmbeddingClient(settings.gemini_api_key, settings.embedding_model, settings.embedding_dimension),
             settings.top_k,
         )
         n = await manager.ingest(settings.profile_dir)
-        print(f"{n}개 청크를 저장했습니다. (model={settings.voyage_model})")
+        print(f"{n}개 청크를 저장했습니다. (model={settings.embedding_model})")
     finally:
         await pool.close()
 
