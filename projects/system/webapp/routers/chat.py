@@ -29,12 +29,12 @@ async def chat(
     chat: ChatManager = Depends(chat_manager_dependency),
 ):
     prev_question = next((t.content for t in reversed(req.history) if t.role == "user"), "")
-    results = retriever.search(req.question, prev_question)
     history = [t.model_dump() for t in req.history]
 
     async def stream():
-        yield sse("sources", [SourceDTO.from_domain(r).model_dump() for r in results])
         try:
+            results = await retriever.search(req.question, prev_question)
+            yield sse("sources", [SourceDTO.from_domain(r).model_dump() for r in results])
             async for text in chat.stream_answer(req.question, history, results):
                 yield sse("delta", text)
         except RuntimeError as e:

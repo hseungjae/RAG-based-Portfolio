@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: rag-portfolio-postgres
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+      POSTGRES_DB: rag_portfolio
+    ports:
+      - "5433:5432"   # 로컬에 설치된 Postgres(5432)와 겹치지 않게 5433 사용
+    volumes:
+      - ./postgresql/00-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
