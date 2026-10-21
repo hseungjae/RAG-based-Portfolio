@@ -2,22 +2,85 @@ const log = document.getElementById("log");
 const form = document.getElementById("form");
 const input = document.getElementById("q");
 const sendBtn = document.getElementById("send");
-const history = []; // 최근 대화만 서버에 보내서 후속 질문 맥락으로 사용
+const resetBtn = document.getElementById("reset");
+const themeBtn = document.getElementById("theme");
+let history = []; // 최근 대화만 서버에 보내서 후속 질문 맥락으로 사용
+let busy = false;
 
 fetch("/api/config").then(r => r.json()).then(c => {
   document.getElementById("owner").textContent = c.owner;
   document.title = `${c.owner} · Ask Me Anything`;
 }).catch(() => {});
 
-document.querySelectorAll(".chips button").forEach(b =>
-  b.addEventListener("click", () => ask(b.textContent)));
+/* ---------- 테마: 시스템 → 라이트 → 다크 순서로 전환 ---------- */
+const THEMES = ["system", "light", "dark"];
+const THEME_LABEL = { system: "시스템 설정", light: "라이트 모드", dark: "다크 모드" };
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || "system";
+}
+
+function applyTheme(mode) {
+  if (mode === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = mode;
+  try {
+    if (mode === "system") localStorage.removeItem("theme");
+    else localStorage.setItem("theme", mode);
+  } catch (e) {}
+  themeBtn.dataset.mode = mode;
+  const label = `테마: ${THEME_LABEL[mode]} (눌러서 변경)`;
+  themeBtn.title = label;
+  themeBtn.setAttribute("aria-label", label);
+}
+
+applyTheme(currentTheme());
+themeBtn.addEventListener("click", () => {
+  applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
+});
+
+/* ---------- 입력창 ---------- */
+function autosize() {
+  input.style.height = "auto";
+  input.style.height = `${input.scrollHeight}px`;
+  // 최대 높이를 넘을 때만 스크롤바를 보여준다
+  input.style.overflowY = input.scrollHeight > 140 ? "auto" : "hidden";
+}
+
+function updateSend() {
+  sendBtn.disabled = busy || !input.value.trim();
+}
+
+input.addEventListener("input", () => { autosize(); updateSend(); });
+input.addEventListener("keydown", e => {
+  // 한글 조합 중 Enter는 무시해야 마지막 글자가 중복 전송되지 않는다
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    form.requestSubmit();
+  }
+});
 
 form.addEventListener("submit", e => {
   e.preventDefault();
   const q = input.value.trim();
-  if (q) ask(q);
+  if (q && !busy) ask(q);
 });
 
+document.getElementById("suggest").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (btn && !busy) ask(btn.textContent);
+});
+
+resetBtn.addEventListener("click", () => {
+  if (busy) return;
+  history = [];
+  log.replaceChildren();
+  document.body.classList.remove("chatting");
+  resetBtn.hidden = true;
+  window.scrollTo({ top: 0 });
+  input.focus();
+});
+
+/* ---------- 메시지 렌더링 ---------- */
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -35,23 +98,42 @@ function renderMarkdown(md) {
   }).join("");
 }
 
-function addMsg(cls, html) {
-  document.getElementById("empty")?.remove();
+function scrollToBottom() {
+  window.scrollTo({ top: document.body.scrollHeight });
+}
+
+function addBlock(cls) {
   const el = document.createElement("div");
-  el.className = `msg ${cls}`;
-  el.innerHTML = html;
+  el.className = cls;
   log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
+  scrollToBottom();
   return el;
 }
 
+function renderRefs(answerEl, sources) {
+  // "문서 > 섹션" 중 섹션 이름만, 중복 없이 유사도 상위 3개
+  const titles = [...new Set(sources.map(s => s.title.split(" > ").pop()))].slice(0, 3);
+  if (!titles.length) return;
+  const refs = document.createElement("p");
+  refs.className = "refs";
+  refs.textContent = `참고 · ${titles.join(" · ")}`;
+  answerEl.appendChild(refs);
+}
+
+/* ---------- 질문 보내기 ---------- */
 async function ask(question) {
+  busy = true;
   input.value = "";
-  sendBtn.disabled = true;
-  addMsg("user", escapeHtml(question));
-  const bot = addMsg("bot typing", "");
+  autosize();
+  updateSend();
+  document.body.classList.add("chatting");
+  resetBtn.hidden = false;
+
+  addBlock("q").textContent = question;
+  const answerEl = addBlock("a");
   const body = document.createElement("div");
-  bot.appendChild(body);
+  body.innerHTML = '<span class="thinking" aria-label="답변 작성 중"><i></i><i></i><i></i></span>';
+  answerEl.appendChild(body);
   let answer = "", sources = [];
 
   try {
@@ -81,30 +163,18 @@ async function ask(question) {
         if (event === "sources") sources = data;
         else if (event === "delta") { answer += data; body.innerHTML = renderMarkdown(answer); }
         else if (event === "error") throw new Error(data);
-        log.scrollTop = log.scrollHeight;
+        scrollToBottom();
       }
     }
-    if (sources.length) {
-      const box = document.createElement("div");
-      box.className = "sources";
-      const seen = new Set();
-      sources.forEach(s => {
-        if (seen.has(s.title)) return;
-        seen.add(s.title);
-        const tag = document.createElement("span");
-        tag.textContent = s.title;
-        box.appendChild(tag);
-      });
-      bot.appendChild(box);
-    }
+    renderRefs(answerEl, sources);
     history.push({ role: "user", content: question }, { role: "assistant", content: answer });
   } catch (e) {
-    bot.classList.add("error");
+    answerEl.classList.add("error");
     body.textContent = e.message;
   } finally {
-    bot.classList.remove("typing");
-    sendBtn.disabled = false;
+    busy = false;
+    updateSend();
     input.focus();
-    log.scrollTop = log.scrollHeight;
+    scrollToBottom();
   }
 }

@@ -27,4 +27,13 @@ def create_app() -> FastAPI:
     async def home():
         return FileResponse(settings.web_dir / "index.html")
 
+    @app.middleware("http")
+    async def no_cache_frontend(request, call_next):
+        # 브라우저가 예전 CSS/JS를 캐시해 새 HTML과 섞이지 않도록, 매번 서버에 변경 여부를 확인하게 한다.
+        # 파일이 그대로면 ETag 덕분에 304 응답만 오가므로 부담은 거의 없다.
+        response = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     return app
