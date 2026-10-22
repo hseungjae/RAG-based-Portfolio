@@ -27,6 +27,11 @@ def create_app() -> FastAPI:
     async def home():
         return FileResponse(settings.web_dir / "index.html")
 
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        # <link rel="icon">를 읽지 않는 브라우저·봇도 같은 아이콘을 받게 한다
+        return FileResponse(settings.web_dir / "favicon.svg", media_type="image/svg+xml")
+
     @app.middleware("http")
     async def no_cache_frontend(request, call_next):
         # 브라우저가 예전 CSS/JS를 캐시해 새 HTML과 섞이지 않도록, 매번 서버에 변경 여부를 확인하게 한다.
