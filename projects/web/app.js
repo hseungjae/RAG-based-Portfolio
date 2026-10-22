@@ -40,6 +40,24 @@ themeBtn.addEventListener("click", () => {
 });
 
 /* ---------- 입력창 ---------- */
+// 빈 입력창에 예시 질문을 돌아가며 보여준다
+const PLACEHOLDERS = [
+  "기능경기대회 성적은 어땠나요?",
+  "어떤 프로젝트를 했나요?",
+  "지금 어디서 일하나요?",
+  "트러블슈팅 경험이 있나요?",
+  "협업 경험을 알려주세요",
+  "강점과 약점이 뭐예요?",
+];
+let placeholderIdx = 0;
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  setInterval(() => {
+    if (input.value) return; // 입력 중일 땐 보이지 않으니 바꾸지 않는다
+    placeholderIdx = (placeholderIdx + 1) % PLACEHOLDERS.length;
+    input.placeholder = PLACEHOLDERS[placeholderIdx];
+  }, 3000);
+}
+
 function autosize() {
   input.style.height = "auto";
   input.style.height = `${input.scrollHeight}px`;
@@ -67,8 +85,9 @@ form.addEventListener("submit", e => {
 });
 
 document.getElementById("suggest").addEventListener("click", e => {
+  // 링크(GitHub, 포트폴리오)는 그대로 열리고, 버튼만 질문으로 보낸다
   const btn = e.target.closest("button");
-  if (btn && !busy) ask(btn.textContent);
+  if (btn && !busy) ask(btn.dataset.q || btn.textContent);
 });
 
 resetBtn.addEventListener("click", () => {
@@ -111,15 +130,6 @@ function addBlock(cls) {
   return el;
 }
 
-function renderRefs(answerEl, sources) {
-  // "문서 > 섹션" 중 섹션 이름만, 중복 없이 유사도 상위 3개
-  const titles = [...new Set(sources.map(s => s.title.split(" > ").pop()))].slice(0, 3);
-  if (!titles.length) return;
-  const refs = document.createElement("p");
-  refs.className = "refs";
-  refs.textContent = `참고 · ${titles.join(" · ")}`;
-  answerEl.appendChild(refs);
-}
 
 /* ---------- 질문 보내기 ---------- */
 async function ask(question) {
@@ -135,7 +145,7 @@ async function ask(question) {
   const body = document.createElement("div");
   body.innerHTML = '<span class="thinking" aria-label="답변 작성 중"><i></i><i></i><i></i></span>';
   answerEl.appendChild(body);
-  let answer = "", sources = [];
+  let answer = "";
 
   // 무료 Gemini API는 붐빌 때 첫 응답까지 수십 초가 걸리기도 해서, 기다리는 이유를 알려준다
   const slowTimer = setTimeout(() => {
@@ -171,13 +181,11 @@ async function ask(question) {
         buf = buf.slice(idx + 2);
         const event = raw.match(/^event: (.*)$/m)?.[1];
         const data = JSON.parse(raw.match(/^data: (.*)$/m)?.[1] ?? "null");
-        if (event === "sources") sources = data;
-        else if (event === "delta") { answer += data; body.innerHTML = renderMarkdown(answer); }
+        if (event === "delta") { answer += data; body.innerHTML = renderMarkdown(answer); }
         else if (event === "error") throw new Error(data);
         scrollToBottom();
       }
     }
-    renderRefs(answerEl, sources);
     history.push({ role: "user", content: question }, { role: "assistant", content: answer });
   } catch (e) {
     answerEl.classList.add("error");
