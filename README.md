@@ -7,10 +7,12 @@
 ```
 RAG-based Portfolio/
 ├── deploy/
-│   └── local/            # pgvector PostgreSQL (docker compose)
+│   ├── local/            # pgvector PostgreSQL (docker compose)
+│   └── tunnel/           # Cloudflare Tunnel 설정 예시
 ├── docs/                 # 설계 문서
 │   ├── architecture.md   # RAG 동작 흐름과 계층 구조
-│   └── local-guide.md    # 로컬 실행, 데이터 적재, 확인 명령어
+│   ├── local-guide.md    # 로컬 실행, 데이터 적재, 확인 명령어
+│   └── tunnel-guide.md   # Cloudflare Tunnel로 chat.sjhan.com 공개
 └── projects/
     ├── system/           # FastAPI 기반 RAG 백엔드
     └── web/              # 채팅 화면 (HTML / CSS / JS)
@@ -18,7 +20,7 @@ RAG-based Portfolio/
 
 ## 실행 방법
 
-처음부터 실행하는 전체 순서와 확인 명령어는 **[docs/local-guide.md](docs/local-guide.md)** 에 정리돼 있습니다.
+처음부터 실행하는 전체 순서와 확인 명령어는 **[docs/local-guide.md](docs/local-guide.md)**, Cloudflare Tunnel로 chat.sjhan.com에 공개하는 방법은 **[docs/tunnel-guide.md](docs/tunnel-guide.md)** 에 정리돼 있습니다.
 
 각 구성 요소의 상세 설명:
 - **DB (pgvector)**: [deploy/local/README.md](deploy/local/README.md)
