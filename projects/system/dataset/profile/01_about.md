@@ -28,11 +28,14 @@
 - CI/CD: GitHub Actions, CodePipeline, Jenkins
 - IaC: CloudFormation, Terraform(테라폼)
 
-## 경력 (지금 일하는 곳, 현재 직장)
-한승재는 2026년 9월부터 현재까지 (주)퍼블릭에이아이에서 Cloud Engineer로 일하고 있습니다.
-- 소속: Platform Engineering Team (서울특별시 서초구)
+## 경력 (회사, 직무, 재직 기간, 실무 경험, 지금 일하는 곳)
+- 회사: (주)퍼블릭에이아이 (서울특별시 서초구)
+- 직무: Cloud Engineer, Platform Engineering Team
+- 재직 기간: 2026년 9월 ~ 현재 (재직 중)
 - 사용 기술: NCP(네이버 클라우드), Kubernetes(쿠버네티스), Jenkins, Loki
-- 공공기관 AI 서비스의 클라우드 인프라(NCP, Kubernetes)를 운영하며, 컨테이너 이미지 저장소 이전과 CI/CD 구조 개편을 맡았습니다.
+- 담당 업무: 공공기관 AI 서비스의 클라우드 인프라(NCP, Kubernetes) 운영, 컨테이너 이미지 저장소 이전과 CI/CD 구조 개편
+
+## 경력 상세: 퍼블릭에이아이에서 한 일 (레지스트리 이전, CI/CD 개편)
 - 서버 한 대에 의존하던 사설 레지스트리를 관리형 레지스트리로 이전했습니다. 외부 노출을 막기 위해 Private Endpoint 전용으로 구성하고, CI와 클러스터가 쓰는 계정을 Push/Pull 권한으로 나눴습니다.
 - 실행 중인 이미지의 digest를 기준으로 옮겨 버전이 섞이지 않게 했고, 4종 이미지가 모두 일치하는 것을 검증한 뒤 롤링 방식으로 전환했습니다.
 - Jenkins Multibranch로 CI/CD를 재구성해 개발 브랜치는 PoC 환경, 운영 브랜치는 운영 환경으로 배포 경로를 분리했습니다.

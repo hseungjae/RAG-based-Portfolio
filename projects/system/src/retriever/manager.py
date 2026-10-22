@@ -4,6 +4,10 @@ from src.chunk.chunker import load_chunks
 from src.chunk.repository import ChunkRepository
 from src.domain import SearchResult
 from src.embedding.client import EmbeddingClient
+from src.retriever.rerank import rerank
+
+# 벡터 검색으로 넉넉히 뽑은 뒤 제목 키워드로 다시 정렬해서 top_k만 남긴다
+CANDIDATES = 10
 
 
 class RetrieverManager:
@@ -24,4 +28,6 @@ class RetrieverManager:
         # 후속 질문("그건 왜요?")도 잘 찾도록 직전 사용자 질문을 검색어에 합친다
         query = f"{prev_question}\n{question}".strip()
         [query_embedding] = await self.embedder.embed([query], "query")
-        return await self.repository.search_similar(query_embedding, self.top_k)
+        candidates = await self.repository.search_similar(query_embedding, CANDIDATES)
+        # 가산점은 지금 질문의 단어로만 준다 (이전 질문 단어로 주면 주제가 바뀐 질문에서 엉뚱한 섹션이 올라온다)
+        return rerank(question, candidates, self.top_k)
