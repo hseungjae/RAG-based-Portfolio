@@ -1,12 +1,23 @@
+import hashlib
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.database.connection import create_pool
 from src.settings import settings
 from webapp.routers import chat
+
+
+def _versioned(match: re.Match) -> str:
+    name = match.group(1)
+    path = settings.web_dir / name
+    if not path.is_file():
+        return match.group(0)
+    digest = hashlib.md5(path.read_bytes()).hexdigest()[:8]
+    return f'"/static/{name}?v={digest}"'
 
 
 @asynccontextmanager
@@ -25,7 +36,10 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def home():
-        return FileResponse(settings.web_dir / "index.html")
+        # CSS/JS 주소 뒤에 파일 내용 해시를 붙인다 (/static/app.js -> /static/app.js?v=3f2a9c1b).
+        # Cloudflare가 정적 파일의 캐시 헤더를 4시간으로 덮어써도, 파일이 바뀌면 주소가 바뀌어 새로 받게 된다.
+        html = (settings.web_dir / "index.html").read_text(encoding="utf-8")
+        return HTMLResponse(re.sub(r'"/static/([\w.-]+)"', _versioned, html))
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
