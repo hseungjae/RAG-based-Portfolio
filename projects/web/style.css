@@ -122,6 +122,13 @@ body.chatting .wrap { padding-top: 24px; }
   padding: 7px 0; max-height: 140px; overflow-y: hidden; line-height: 1.6;
 }
 .composer textarea::placeholder { color: var(--faint); }
+.tab-hint {
+  align-self: center; flex: none; margin-right: 2px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 6px;
+  font: 500 11px/1.6 inherit; font-family: inherit; color: var(--faint); background: var(--surface);
+}
+.composer.has-text .tab-hint { display: none; }
+/* 키보드가 없는 터치 기기에서는 힌트를 숨긴다 */
+@media (hover: none) { .tab-hint { display: none; } }
 .composer button {
   width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%;
   background: var(--strong); color: var(--on-strong); display: grid; place-items: center; cursor: pointer;

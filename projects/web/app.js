@@ -67,10 +67,20 @@ function autosize() {
 
 function updateSend() {
   sendBtn.disabled = busy || !input.value.trim();
+  // 입력창이 비어 있을 때만 "Tab" 힌트를 보여준다
+  form.classList.toggle("has-text", !!input.value);
 }
 
 input.addEventListener("input", () => { autosize(); updateSend(); });
 input.addEventListener("keydown", e => {
+  // 빈 입력창에서 Tab을 누르면 지금 보이는 예시 질문을 채워 넣는다
+  if (e.key === "Tab" && !e.shiftKey && !input.value && !e.isComposing) {
+    e.preventDefault();
+    input.value = input.placeholder;
+    autosize();
+    updateSend();
+    return;
+  }
   // 한글 조합 중 Enter는 무시해야 마지막 글자가 중복 전송되지 않는다
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
