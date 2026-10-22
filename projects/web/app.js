@@ -67,8 +67,6 @@ function autosize() {
 
 function updateSend() {
   sendBtn.disabled = busy || !input.value.trim();
-  // 입력창이 비어 있을 때만 "Tab" 힌트를 보여준다
-  form.classList.toggle("has-text", !!input.value);
 }
 
 input.addEventListener("input", () => { autosize(); updateSend(); });
