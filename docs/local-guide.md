@@ -56,7 +56,7 @@ cd deploy/local
 docker compose up -d
 ```
 
-컨테이너가 처음 만들어질 때 `deploy/local/postgresql/00-init.sql`이 실행되어 `vector` 확장, `profile_chunk` 테이블, HNSW 인덱스가 생성됩니다.
+컨테이너가 처음 만들어질 때 `deploy/local/postgresql/00-init.sql`이 실행되어 `vector` 확장, `profile_chunk` 테이블, HNSW 인덱스가 생성됩니다. (지금처럼 청크가 수십 개일 때는 Postgres가 인덱스 대신 순차 스캔을 씁니다. 이유는 [architecture.md](architecture.md) 참고)
 
 ```bash
 cd projects/system
@@ -184,7 +184,22 @@ Q. 지금 어디서 일해요?
 docker exec rag-portfolio-postgres psql -U rag -d rag_portfolio -c "select a.title, b.title, round((1-(a.embedding<=>b.embedding))::numeric,2) as 유사도 from profile_chunk a join profile_chunk b on a.chunk_id<b.chunk_id order by 3 desc limit 5;"
 ```
 
-### 4-6. API로 직접 질문
+### 4-6. 인덱스를 쓰는지 확인 (실행 계획)
+
+```bash
+docker exec rag-portfolio-postgres psql -U rag -d rag_portfolio -c "EXPLAIN SELECT chunk_id FROM profile_chunk ORDER BY embedding <=> (SELECT embedding FROM profile_chunk LIMIT 1) LIMIT 4;"
+```
+
+- `Seq Scan` → `Sort`: 전체를 읽어 정렬 (청크가 적을 때 정상)
+- `Index Scan using profile_chunk_embedding_idx`: HNSW 인덱스 사용 (청크가 많아지면 이렇게 바뀜)
+
+인덱스가 실제로 몇 번 쓰였는지:
+
+```bash
+docker exec rag-portfolio-postgres psql -U rag -d rag_portfolio -c "select indexrelname, idx_scan from pg_stat_user_indexes where relname='profile_chunk';"
+```
+
+### 4-7. API로 직접 질문
 
 ```bash
 curl -N -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d '{"question":"기능경기대회 성적은?"}'

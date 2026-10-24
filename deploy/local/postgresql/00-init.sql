@@ -10,5 +10,7 @@ CREATE TABLE IF NOT EXISTS profile_chunk (
     embedding  vector(1024) NOT NULL
 );
 
+-- 청크가 많아질 때를 위한 근사 검색 인덱스.
+-- 지금처럼 수십 개 규모에서는 Postgres가 순차 스캔이 더 빠르다고 판단해 이 인덱스를 쓰지 않는다 (EXPLAIN으로 확인).
 CREATE INDEX IF NOT EXISTS profile_chunk_embedding_idx
     ON profile_chunk USING hnsw (embedding vector_cosine_ops);
