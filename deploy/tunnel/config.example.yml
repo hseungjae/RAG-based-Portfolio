@@ -1,0 +1,11 @@
+# Cloudflare Tunnel 설정 예시. ~/.cloudflared/config.yml 로 복사한 뒤 <TUNNEL_ID> 두 곳을 바꿔 쓴다.
+# <TUNNEL_ID>는 `cloudflared tunnel create rag-portfolio` 실행 결과에 나오는 ID다.
+tunnel: <TUNNEL_ID>
+credentials-file: /Users/hanseungjae/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # chat.sjhan.com 으로 들어온 요청만 로컬 FastAPI 서버(8000)로 보낸다
+  - hostname: chat.sjhan.com
+    service: http://localhost:8000
+  # 그 외 요청은 모두 404
+  - service: http_status:404

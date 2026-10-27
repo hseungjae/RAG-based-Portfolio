@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: rag-portfolio-postgres
+    environment:
+      POSTGRES_USER: hseungjae
+      POSTGRES_PASSWORD: "skills53#"
+      POSTGRES_DB: sjhan
+    ports:
+      # 로컬에 설치된 Postgres(5432)와 겹치지 않게 5433 사용.
+      # 127.0.0.1에만 열어서 같은 와이파이의 다른 기기에서는 DB에 접속할 수 없게 한다.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - ./postgresql/00-init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
