@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+.DS_Store
+.claude/
+
+# k3s 평문 시크릿. 봉인할 때만 잠깐 만들고, 봉인된 k3s/sealedsecret/ 만 커밋한다
+k3s/secrets/
