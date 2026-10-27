@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: system
+  namespace: rag-portfolio
+spec:
+  revisionHistoryLimit: 1
+  replicas: 1
+  selector:
+    matchLabels:
+      app: system
+  template:
+    metadata:
+      labels:
+        app: system
+    spec:
+      containers:
+        - name: system
+          # 서버에서 직접 빌드해 k3s 에 import 한 이미지다. 레지스트리에서 받지 않는다.
+          image: rag-portfolio:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: system-secret      # GEMINI_API_KEY
+            - secretRef:
+                name: database-secret    # DATABASE_URL
+          env:
+            - name: OWNER_NAME
+              value: 한승재
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          readinessProbe: # 트래픽을 받을 준비가 됐는지 확인
+            httpGet:
+              path: /api/config
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe: # 죽은 상태로 방치되지 않도록 재시작
+            httpGet:
+              path: /api/config
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: system
+  namespace: rag-portfolio
+  labels:
+    app: system
+spec:
+  selector:
+    app: system
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      name: web
+  type: ClusterIP
