@@ -20,6 +20,7 @@
 | 항목 | 용도 |
 |---|---|
 | Docker Desktop | pgvector가 들어 있는 PostgreSQL 실행 |
+| Node.js 24 + pnpm 10 | React 화면 개발 서버 실행 (`projects/react-app`). pnpm은 `npm install -g pnpm@10.23.0` |
 | [uv](https://docs.astral.sh/uv/) | Python 3.12 가상환경과 패키지 설치 |
 | Gemini API 키 | 답변 생성과 임베딩 모두 사용 ([AI Studio](https://aistudio.google.com/apikey)에서 무료 발급) |
 
@@ -84,7 +85,15 @@ cd projects/system
    .venv/bin/python run.py --reload
    ```
 
-4. 브라우저에서 http://localhost:8000 에 접속합니다.
+4. **화면(React)을 실행합니다.** 다른 터미널에서 실행하고, 처음 한 번은 `pnpm install`이 필요합니다.
+
+   ```bash
+   cd projects/react-app
+   pnpm install   # 처음 한 번만
+   pnpm dev
+   ```
+
+5. 브라우저에서 http://localhost:5173 에 접속합니다. 화면의 `/api` 요청은 Vite가 8000 서버로 넘겨 줍니다.
 
 데이터는 다시 적재하지 않아도 됩니다. 이유는 다음 절을 참고하세요.
 
