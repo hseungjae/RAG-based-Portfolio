@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- 색상 토큰 (shadcn/ui 규칙: HSL 값만 적는다) ----------
+   기본은 OS 설정을 따르고, 테마 버튼으로 고르면 <html class="dark">가 바뀐다. */
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 0 0% 100%;
+    --foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --faint: 240 5% 64.9%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 100%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background: 240 5% 4%;
+    --foreground: 240 6% 93%;
+    --muted: 240 5% 11.6%;
+    --muted-foreground: 240 5% 64.9%;
+    --faint: 240 4% 40.4%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 6% 93%;
+    --primary: 240 6% 93%;
+    --primary-foreground: 240 5% 4%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 240 5% 4%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background font-sans text-base text-foreground antialiased;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
+  }
+
+  button,
+  textarea {
+    letter-spacing: inherit;
+  }
+
+  :focus-visible {
+    @apply rounded outline outline-2 outline-offset-2 outline-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
