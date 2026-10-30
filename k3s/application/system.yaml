@@ -17,7 +17,7 @@ spec:
       containers:
         - name: system
           # 서버에서 직접 빌드해 k3s 에 import 한 이미지다. 레지스트리에서 받지 않는다.
-          image: rag-portfolio:latest
+          image: system:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
@@ -66,5 +66,5 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8000
-      name: web
+      name: http
   type: ClusterIP
