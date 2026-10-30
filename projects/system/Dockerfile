@@ -3,14 +3,13 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# 빌드 컨텍스트는 projects/ 다 — settings.web_dir 이 system 의 형제 폴더(web)를 가리키므로 구조를 그대로 둔다.
-#   docker build -f projects/system/Dockerfile -t rag-portfolio:latest projects
+# 화면은 projects/react-app 이미지가 따로 제공하므로, 이 이미지에는 API 서버만 넣는다.
+#   docker build -t system:latest projects/system
 WORKDIR /app/system
-COPY system/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY system/ /app/system/
-COPY web/ /app/web/
+COPY . /app/system/
 
 RUN useradd --system --uid 10001 app
 USER 10001
