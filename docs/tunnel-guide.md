@@ -1,10 +1,11 @@
 # Cloudflare Tunnel로 공개하기 (chat.sjhan.com)
 
-이 Mac에서 실행 중인 서버(`localhost:8000`)를 Cloudflare Tunnel로 `https://chat.sjhan.com`에 연결합니다.
+이 Mac에서 실행 중인 화면(`localhost:4173`)과 API 서버(`localhost:8000`)를 Cloudflare Tunnel로 `https://chat.sjhan.com`에 연결합니다.
 포트를 열거나 공유기 설정을 바꿀 필요가 없고, HTTPS 인증서도 Cloudflare가 자동으로 처리합니다.
 
 ```
-방문자 → https://chat.sjhan.com → Cloudflare → (터널) → 이 Mac의 cloudflared → localhost:8000 (FastAPI) → Docker DB
+방문자 → https://chat.sjhan.com → Cloudflare → (터널) → 이 Mac의 cloudflared ─┬─ /api/*  → localhost:8000 (FastAPI) → Docker DB
+                                                                               └─ 그 외   → localhost:4173 (React 빌드 결과, vite preview)
 ```
 
 > **주의:** 이 Mac이 꺼지거나 잠들면 사이트도 열리지 않습니다. 항상 켜 두는 서버가 필요해지면 클라우드 호스팅으로 옮기는 것을 고려하세요.
@@ -57,7 +58,7 @@ cp deploy/tunnel/config.example.yml ~/.cloudflared/config.yml
 
 ## 2. 매번 실행하는 순서
 
-터미널 창 3개를 씁니다. (프로젝트 루트에서 시작)
+터미널 창 4개를 씁니다. (프로젝트 루트에서 시작)
 
 **① DB**
 
@@ -71,7 +72,13 @@ cd deploy/local && docker compose up -d
 cd projects/system && .venv/bin/python run.py --host 127.0.0.1
 ```
 
-**③ 터널**
+**③ 화면** — 빌드한 React 앱을 `127.0.0.1:4173`에서 제공합니다.
+
+```bash
+cd projects/react-app && pnpm install && pnpm build && pnpm preview
+```
+
+**④ 터널**
 
 ```bash
 cloudflared tunnel run rag-portfolio
@@ -79,7 +86,7 @@ cloudflared tunnel run rag-portfolio
 
 `Registered tunnel connection`이 몇 줄 나오면 연결된 것입니다. 브라우저에서 https://chat.sjhan.com 에 접속해 확인하세요.
 
-종료할 때는 ②와 ③ 터미널에서 **Ctrl + C**를 누릅니다.
+종료할 때는 ②, ③, ④ 터미널에서 **Ctrl + C**를 누릅니다.
 
 ### 왜 `--host 127.0.0.1`인가
 
@@ -96,6 +103,7 @@ cloudflared tunnel run rag-portfolio
 |---|---|
 | Mac 잠자기 | 잠들면 사이트가 끊깁니다. 켜 두는 동안 `caffeinate -dims`를 다른 터미널에서 실행하면 잠들지 않습니다 (Ctrl + C로 해제) |
 | 서버를 재시작하면 | 터널은 그대로 두면 됩니다. 서버가 다시 뜨면 자동으로 이어집니다 |
+| 화면을 수정하면 | ③에서 `pnpm build` 후 `pnpm preview`를 다시 실행 |
 | 자기소개를 수정하면 | `cd projects/system && .venv/bin/python -m scripts.ingest` 후 바로 반영 (서버 재시작 불필요) |
 | API 사용량 | 공개된 주소라 누구나 질문할 수 있습니다. IP당 요청 제한과 Gemini 무료 한도가 비용을 막아 줍니다 |
 
@@ -105,7 +113,7 @@ cloudflared tunnel run rag-portfolio
 
 | 증상 | 원인 | 해결 |
 |---|---|---|
-| chat.sjhan.com 접속 시 Cloudflare **502 / 1033** 오류 | 터널은 연결됐지만 8000 서버가 꺼져 있음, 또는 터널이 꺼져 있음 | ② 서버와 ③ 터널이 둘 다 실행 중인지 확인 |
+| chat.sjhan.com 접속 시 Cloudflare **502 / 1033** 오류 | 터널은 연결됐지만 8000 서버나 4173 화면이 꺼져 있음, 또는 터널이 꺼져 있음 | ② 서버, ③ 화면, ④ 터널이 모두 실행 중인지 확인 |
 | `cloudflared tunnel route dns` 실패 (레코드가 이미 있음) | Cloudflare DNS에 `chat` 레코드가 이미 있음 | Cloudflare 대시보드 **DNS → Records**에서 기존 `chat` 레코드를 지우고 다시 실행 |
 | 답변이 한 번에 몰아서 나옴 | 중간에서 스트리밍이 버퍼링됨 | 서버가 `X-Accel-Buffering: no`, `Cache-Control: no-cache`를 보내고 있는지 확인 (기본 설정에 포함) |
 | "질문이 너무 많아요"가 모두에게 뜸 | 서버가 방문자 IP를 구분하지 못함 | `webapp/rate_limit.py`의 `client_ip`가 `CF-Connecting-IP`를 읽는지 확인 |
