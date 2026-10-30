@@ -3,7 +3,8 @@
 Ubuntu 서버 2대로 만든 k3s 클러스터에서 챗봇, DB, Cloudflare Tunnel을 모두 실행합니다.
 
 ```
-방문자 → https://chat.sjhan.com → Cloudflare → cloudflared 파드 → system 서비스(80 → 8000) → postgres(5432)
+방문자 → https://chat.sjhan.com → Cloudflare → cloudflared 파드 → react-app 서비스(nginx, 80)
+                                                                    └─ /api/* → system 서비스(80 → 8000) → postgres(5432)
 ```
 
 | 노드 | 내부 IP | 역할 |
@@ -18,7 +19,8 @@ k3s/
 ├── README.md
 ├── application/               # 애플리케이션
 │   ├── namespace.yaml         #   네임스페이스 rag-portfolio
-│   ├── system.yaml            #   챗봇 서버 Deployment + Service(ClusterIP 80 → 8000)
+│   ├── react-app.yaml         #   채팅 화면(nginx) Deployment + Service(ClusterIP 80 → 80)
+│   ├── system.yaml            #   챗봇 API 서버 Deployment + Service(ClusterIP 80 → 8000)
 │   └── system-ingest-job.yaml #   자기소개 문서 임베딩·적재 Job
 ├── infra/                     # 인프라
 │   ├── database.yaml          #   pgvector PostgreSQL StatefulSet + 헤드리스 Service + 초기 스키마 ConfigMap
@@ -32,10 +34,11 @@ k3s/
 
 - 시크릿은 클러스터의 sealed-secrets 컨트롤러 공개키로 암호화해 `sealedsecret/`에 둡니다. 컨트롤러가 클러스터 안에서만 풀어 진짜 Secret을 만듭니다.
 - 평문 시크릿은 봉인할 때만 `k3s/secrets/`에 잠깐 만들고 지웁니다. 이 폴더는 `.gitignore`로 커밋되지 않습니다.
-- 이미지는 `projects/system/Dockerfile`로 k3s-1에서 직접 빌드해 **두 노드 모두에** 넣습니다(레지스트리 없음, `imagePullPolicy: Never`).
+- 이미지 2개(`system`, `react-app`)를 k3s-1에서 직접 빌드해 **두 노드 모두에** 넣습니다(레지스트리 없음, `imagePullPolicy: Never`).
 
 | 리소스 | 이름 | 사용하는 Secret |
 |---|---|---|
+| Deployment / Service | `react-app` | - |
 | Deployment / Service | `system` | `system-secret`, `database-secret` |
 | Job | `system-ingest` | `system-secret`, `database-secret` |
 | StatefulSet / Service | `postgres` | `database-secret` |
@@ -102,11 +105,12 @@ chmod 600 ~/sealed-secrets-key-backup.yaml
 
 ## 2. 이미지 빌드 · 배포
 
-이미지를 빌드해 k3s-1에 넣고, k3s-2에도 보냅니다.
+이미지 2개를 빌드해 k3s-1에 넣고, k3s-2에도 보냅니다.
 
 ```bash
-sudo docker build -f projects/system/Dockerfile -t rag-portfolio:latest projects
-sudo docker save rag-portfolio:latest -o ~/rag-portfolio.tar && sudo chown $USER ~/rag-portfolio.tar
+sudo docker build -t system:latest projects/system
+sudo docker build -t react-app:latest projects/react-app
+sudo docker save system:latest react-app:latest -o ~/rag-portfolio.tar && sudo chown $USER ~/rag-portfolio.tar
 sudo k3s ctr images import ~/rag-portfolio.tar
 scp ~/rag-portfolio.tar ubuntu@10.0.0.135:~ && ssh -t ubuntu@10.0.0.135 'sudo k3s ctr images import ~/rag-portfolio.tar && rm ~/rag-portfolio.tar'
 rm ~/rag-portfolio.tar
@@ -140,7 +144,7 @@ kubectl -n rag-portfolio logs job/system-ingest  # "N개 청크를 저장했습�
 ```bash
 git pull
 # 2장의 "이미지 빌드 · 두 노드 import" 명령 실행
-kubectl -n rag-portfolio rollout restart deployment/system
+kubectl -n rag-portfolio rollout restart deployment/system deployment/react-app
 sudo docker image prune -f   # 이전 이미지 정리 (디스크 절약)
 ```
 
@@ -180,6 +184,7 @@ Secret별 키:
 | 하는 일 | 명령 |
 |---|---|
 | 서버 로그 | `kubectl -n rag-portfolio logs -f deploy/system` |
+| 화면(nginx) 로그 | `kubectl -n rag-portfolio logs -f deploy/react-app` |
 | 터널 로그 | `kubectl -n rag-portfolio logs -f deploy/cloudflared` |
 | DB 접속 | `kubectl -n rag-portfolio exec -it postgres-0 -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` |
 | 서버·터널만 내리기 (DB 유지) | `kubectl -n rag-portfolio scale deploy --all --replicas=0` |
@@ -194,6 +199,7 @@ Secret별 키:
 | sealed-secrets 컨트롤러 | 약 50~100Mi | - |
 | postgres | 요청 256Mi · 상한 1Gi | PVC 2Gi |
 | system | 요청 128Mi · 상한 512Mi | 이미지 약 0.4GB |
+| react-app | 요청 16Mi · 상한 64Mi | 이미지 약 0.05GB |
 | cloudflared | 요청 64Mi · 상한 256Mi | 이미지 약 0.05GB |
 
 - 디스크 20GB 중 OS를 빼면 여유가 크지 않으니, 빌드 후 `sudo docker image prune -f`로 이전 이미지를 지웁니다. 이미지가 Docker와 k3s(containerd)에 한 벌씩 저장되기 때문입니다.
