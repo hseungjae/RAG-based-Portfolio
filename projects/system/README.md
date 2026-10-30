@@ -30,7 +30,7 @@ system/
 │       ├── prompt.py       # 시스템 프롬프트, 문서 컨텍스트 구성
 │       └── manager.py      # Gemini API 스트리밍 호출
 └── webapp/                 # FastAPI 애플리케이션
-    ├── app.py              # 앱 생성, DB 풀 lifespan, 정적 파일 등록
+    ├── app.py              # 앱 생성, DB 풀 lifespan
     ├── dependency.py       # Manager 의존성 주입
     ├── dto.py              # 요청/응답 DTO
     ├── rate_limit.py       # IP별 요청 제한
@@ -66,7 +66,7 @@ cp .env.example .env        # GEMINI_API_KEY 입력
 .venv/bin/python run.py --reload
 ```
 
-http://localhost:8000 접속.
+API는 http://localhost:8000/api 에서 동작합니다. 채팅 화면은 [`projects/react-app`](../react-app/README.md)에서 `pnpm dev`로 띄웁니다.
 
 ## API
 
