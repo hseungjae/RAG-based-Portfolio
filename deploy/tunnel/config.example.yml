@@ -4,8 +4,12 @@ tunnel: <TUNNEL_ID>
 credentials-file: /Users/hanseungjae/.cloudflared/<TUNNEL_ID>.json
 
 ingress:
-  # chat.sjhan.com 으로 들어온 요청만 로컬 FastAPI 서버(8000)로 보낸다
+  # chat.sjhan.com/api/* 요청은 로컬 FastAPI 서버(8000)로 보낸다
   - hostname: chat.sjhan.com
+    path: ^/api/
     service: http://localhost:8000
+  # 나머지는 빌드한 React 화면(vite preview, 4173)으로 보낸다
+  - hostname: chat.sjhan.com
+    service: http://localhost:4173
   # 그 외 요청은 모두 404
   - service: http_status:404
