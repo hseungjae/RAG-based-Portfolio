@@ -4,7 +4,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant Web as Web (채팅 화면)
+    participant Web as React App (채팅 화면)
     participant Router as webapp/routers/chat.py
     participant Retriever as RetrieverManager
     participant Embed as Gemini Embedding
