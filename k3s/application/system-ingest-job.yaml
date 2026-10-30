@@ -13,7 +13,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: ingest
-          image: rag-portfolio:latest
+          image: system:latest
           imagePullPolicy: Never
           command: ["python", "-m", "scripts.ingest"]
           envFrom:
