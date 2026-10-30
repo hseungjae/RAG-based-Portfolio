@@ -4,7 +4,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 SYSTEM_DIR = Path(__file__).resolve().parent.parent
-PROJECTS_DIR = SYSTEM_DIR.parent
 load_dotenv(SYSTEM_DIR / ".env")
 
 
@@ -20,7 +19,6 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql://hseungjae:skills53%23@localhost:5433/sjhan")
 
     profile_dir: Path = SYSTEM_DIR / "dataset" / "profile"
-    web_dir: Path = PROJECTS_DIR / "web"
 
     top_k: int = 4
     rate_limit: int = 20         # IP당 rate_window초 동안 허용하는 질문 수
