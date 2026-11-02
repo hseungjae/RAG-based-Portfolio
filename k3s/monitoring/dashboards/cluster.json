@@ -714,7 +714,7 @@
       "gridPos": {
         "x": 0,
         "y": 29,
-        "w": 12,
+        "w": 24,
         "h": 9
       },
       "targets": [
@@ -724,7 +724,7 @@
             "type": "prometheus",
             "uid": "vm"
           },
-          "expr": "100 * sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",pod!=\"\"}) / on (namespace, pod) sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\"})",
+          "expr": "sort_desc(100 * sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",pod!=\"\"}) / on (namespace, pod) sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\"}))",
           "legendFormat": "{{namespace}}/{{pod}}",
           "editorMode": "code",
           "range": false,
@@ -768,59 +768,6 @@
         }
       },
       "description": "100%에 가까우면 OOM 으로 재시작될 수 있다"
-    },
-    {
-      "id": 16,
-      "type": "table",
-      "title": "파드별 재시작 (24시간)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "vm"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 29,
-        "w": 12,
-        "h": 9
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm"
-          },
-          "expr": "sort_desc(sum by (namespace, pod) (increase(kube_pod_container_status_restarts_total[24h])))",
-          "legendFormat": "",
-          "editorMode": "code",
-          "range": false,
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true
-      },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "renameByName": {
-              "namespace": "네임스페이스",
-              "pod": "파드",
-              "Value": "재시작"
-            }
-          }
-        }
-      ]
     }
   ]
 }
