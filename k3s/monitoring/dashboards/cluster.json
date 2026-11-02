@@ -1,7 +1,7 @@
 {
   "uid": "rag-cluster",
   "title": "클러스터 자원",
-  "description": "k3s 노드와 파드의 CPU·메모리·디스크, 재시작 현황",
+  "description": "k3s 노드와 파드의 CPU·메모리·디스크 현황",
   "tags": [
     "rag-portfolio"
   ],
@@ -384,7 +384,7 @@
     {
       "id": 9,
       "type": "stat",
-      "title": "실행 중인 파드",
+      "title": "Running Pod",
       "datasource": {
         "type": "prometheus",
         "uid": "vm"
@@ -392,7 +392,7 @@
       "gridPos": {
         "x": 0,
         "y": 16,
-        "w": 6,
+        "w": 8,
         "h": 4
       },
       "targets": [
@@ -430,15 +430,15 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "준비 안 된 파드",
+      "title": "Not Ready Pod",
       "datasource": {
         "type": "prometheus",
         "uid": "vm"
       },
       "gridPos": {
-        "x": 6,
+        "x": 8,
         "y": 16,
-        "w": 6,
+        "w": 8,
         "h": 4
       },
       "targets": [
@@ -490,80 +490,15 @@
     {
       "id": 11,
       "type": "stat",
-      "title": "재시작 (24시간)",
+      "title": "OOMKilled Container",
       "datasource": {
         "type": "prometheus",
         "uid": "vm"
       },
       "gridPos": {
-        "x": 12,
+        "x": 16,
         "y": 16,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "vm"
-          },
-          "expr": "sum(increase(kube_pod_container_status_restarts_total[24h])) or vector(0)",
-          "legendFormat": "",
-          "editorMode": "code",
-          "range": false,
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto",
-        "justifyMode": "auto"
-      }
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "OOM으로 종료된 컨테이너",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "vm"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 16,
-        "w": 6,
+        "w": 8,
         "h": 4
       },
       "targets": [
@@ -614,7 +549,7 @@
       "description": "메모리 limit 을 넘어 강제 종료된 적이 있는 컨테이너 수"
     },
     {
-      "id": 13,
+      "id": 12,
       "type": "timeseries",
       "title": "파드 메모리 (working set)",
       "datasource": {
@@ -659,7 +594,7 @@
       }
     },
     {
-      "id": 14,
+      "id": 13,
       "type": "timeseries",
       "title": "파드 CPU",
       "datasource": {
@@ -704,7 +639,7 @@
       }
     },
     {
-      "id": 15,
+      "id": 14,
       "type": "bargauge",
       "title": "메모리 limit 대비 사용률",
       "datasource": {
