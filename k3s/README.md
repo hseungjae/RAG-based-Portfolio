@@ -287,10 +287,12 @@ kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout 
 kubectl -n monitoring get pods -o wide
 ```
 
-https://grafana.sjhan.com 에 `admin`으로 로그인합니다. 비밀번호 확인:
+https://grafana.sjhan.com 에 `hseungjae`(`grafana.yaml`의 `GF_SECURITY_ADMIN_USER`)로 로그인합니다. 비밀번호 확인:
 
 ```bash
 kubectl -n monitoring get secret grafana-secret -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d; echo
 ```
 
-> `GF_SECURITY_ADMIN_PASSWORD`는 Grafana 가 **처음 뜰 때만** 적용됩니다. 나중에 바꾸려면 `kubectl -n monitoring exec deploy/grafana -- grafana cli admin reset-admin-password <새 비밀번호>`를 씁니다.
+> 관리자 아이디·비밀번호(`GF_SECURITY_ADMIN_USER`, `GF_SECURITY_ADMIN_PASSWORD`)는 Grafana 가 **처음 뜰 때만** 적용되고, 그 뒤로는 Grafana 저장소(PVC)에 있는 값을 씁니다.
+> 나중에 바꿀 때는 Grafana 화면(프로필 → Change password, Administration → Users)이나 API 로 계정을 바꾸고, 다음에 새로 설치할 때도 같도록 `grafana.yaml`과 시크릿도 함께 고쳐 둡니다.
+> 비밀번호 한 값만 다시 봉인하려면: `printf %s '<새 비밀번호>' | kubeseal --raw --scope strict --name grafana-secret --namespace monitoring --cert k3s/sealed-secret.pem` 결과로 `sealedsecret/grafana-sealedsecret.yaml`의 해당 줄을 바꿉니다.
