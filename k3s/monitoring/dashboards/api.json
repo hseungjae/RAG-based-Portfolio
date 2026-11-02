@@ -554,6 +554,21 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "unanswered"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "error"
             },
             "properties": [
@@ -594,7 +609,7 @@
           "sort": "desc"
         }
       },
-      "description": "ok: 정상 / error: Gemini·DB 오류 / cancelled: 답변 중 방문자가 창을 닫음"
+      "description": "ok: 정상 / unanswered: 문서에 정보가 없어 거절 문장으로 답함 / error: Gemini·DB 오류 / cancelled: 답변 중 방문자가 창을 닫음"
     }
   ]
 }
