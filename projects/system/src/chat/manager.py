@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 from google.genai import errors, types
 
-from src.chat.prompt import build_system_prompt, build_user_message
+from src.chat.prompt import EMPTY_ANSWER, build_system_prompt, build_user_message
 from src.domain import SearchResult
 from src.external_clients.gemini import create_gemini_client
 
@@ -53,4 +53,4 @@ class ChatManager:
             raise RuntimeError(f"AI 서버 오류가 발생했어요. ({e.code})") from e
         if not answered:
             # 안전 필터 등으로 답변이 비어 있는 경우
-            yield "죄송해요, 이 질문에는 답변드리기 어려워요."
+            yield EMPTY_ANSWER
