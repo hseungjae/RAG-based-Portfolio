@@ -9,6 +9,7 @@ FastAPI 기반 RAG 서비스와 React 웹 화면으로 구성되며, k3s 클러�
 
 * **System**: FastAPI 기반 RAG 서비스. PostgreSQL + pgvector로 자기소개 문서를 벡터 검색하고, Gemini API로 답변을 생성해 SSE로 스트리밍합니다.
 * **React App**: 다크 모드를 지원하는 반응형 채팅 화면(React + TypeScript + Tailwind CSS + shadcn/ui). nginx가 빌드 결과를 제공하고 `/api` 요청은 System으로 넘깁니다.
+* **Monitoring**: VictoriaMetrics + Grafana로 노드·파드 자원, API 요청·오류, 방문자 질문 통계를 대시보드로 봅니다.
 * **Infra**: k3s(노드 2대)에 React App, System, PostgreSQL, Cloudflare Tunnel을 배포하고, 시크릿은 Sealed Secrets로 암호화해 관리합니다.
 
 ## 폴더 구조 및 주요 파일
@@ -22,6 +23,7 @@ RAG-based-Portfolio/
 ├── k3s/                # Kubernetes(k3s) 배포 매니페스트
 │   ├── application/    # 네임스페이스, 챗봇 서버, 문서 적재 Job
 │   ├── infra/          # PostgreSQL(pgvector), Cloudflare Tunnel
+│   ├── monitoring/     # VictoriaMetrics, Grafana, 대시보드
 │   └── sealedsecret/   # Sealed Secrets로 암호화한 시크릿
 └── projects/           # 서비스 코어 (System, React App)
     ├── system/         # FastAPI 기반 RAG 백엔드
