@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from src.chat.manager import ChatManager
+from src.chat.prompt import is_unanswered
 from src.chat_log.repository import ChatLogRepository
 from src.domain import ChatLog
 from src.retriever.manager import RetrieverManager
@@ -64,7 +65,7 @@ async def chat(
     async def stream():
         started = time.monotonic()
         first_token: float | None = None
-        answer_len = 0
+        answer = ""
         results = []
         status, error = "error", "예상하지 못한 서버 오류"
         try:
@@ -74,11 +75,12 @@ async def chat(
                 if first_token is None:
                     first_token = time.monotonic() - started
                     CHAT_FIRST_TOKEN.observe(first_token)
-                answer_len += len(text)
+                answer += text
                 yield sse("delta", text)
-            status, error = "ok", None
+            # 오류 없이 끝났어도, 문서에 정보가 없어 거절 문장으로 답했으면 따로 센다
+            status, error = ("unanswered" if is_unanswered(answer) else "ok"), None
             sources = ", ".join(f"{r.chunk.title}({r.score:.2f})" for r in results)
-            logger.info("답변 ip=%s %.1fs %d자 sources=[%s]", ip, time.monotonic() - started, answer_len, sources)
+            logger.info("답변 ip=%s %s %.1fs %d자 sources=[%s]", ip, status, time.monotonic() - started, len(answer), sources)
         except RuntimeError as e:
             status, error = "error", str(e)
             logger.warning("실패 ip=%s %.1fs error=%s", ip, time.monotonic() - started, e)
@@ -93,7 +95,7 @@ async def chat(
             CHAT_DURATION.observe(elapsed)
             log = ChatLog(
                 visitor=visitor_id(ip), question=req.question, history_turns=len(history),
-                status=status, error=error, duration_ms=int(elapsed * 1000), answer_chars=answer_len,
+                status=status, error=error, duration_ms=int(elapsed * 1000), answer=answer, answer_chars=len(answer),
                 first_token_ms=int(first_token * 1000) if first_token is not None else None,
                 sources=[{"title": r.chunk.title, "score": round(r.score, 2)} for r in results],
             )
