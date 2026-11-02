@@ -21,8 +21,9 @@ class ChatLog:
     visitor: str                 # IP 해시 (방문자 수 집계용, 원본 IP는 저장하지 않음)
     question: str
     history_turns: int
-    status: str                  # ok | error | cancelled
+    status: str                  # ok | unanswered(문서에 없어 거절 문장으로 답함) | error | cancelled
     duration_ms: int
+    answer: str = ""
     answer_chars: int = 0
     first_token_ms: int | None = None
     error: str | None = None
