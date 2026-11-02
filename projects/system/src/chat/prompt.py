@@ -4,6 +4,14 @@ FALLBACK_ANSWER = (
     "해당 내용에 대해서는 답변드리기 어려운 점 양해 부탁드립니다. "
     "추가로 궁금하신 사항이나 자세한 설명이 필요하신 부분이 있다면 언제든지 문의해 주세요."
 )
+# 안전 필터 등으로 Gemini 답변이 비어 있을 때 대신 보내는 문장
+EMPTY_ANSWER = "죄송해요, 이 질문에는 답변드리기 어려워요."
+
+
+def is_unanswered(answer: str) -> bool:
+    """문서에 정보가 없어 답하지 못한 경우(정해진 거절 문장)인지 확인한다."""
+    text = answer.strip().strip('"')
+    return text in (FALLBACK_ANSWER, EMPTY_ANSWER)
 
 
 def build_system_prompt(owner: str) -> str:
