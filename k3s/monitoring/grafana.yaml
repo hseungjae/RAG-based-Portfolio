@@ -1,0 +1,148 @@
+# Grafana. https://grafana.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared.yaml).
+# 관리자 비밀번호와 DB 읽기 전용 계정 정보는 grafana-secret(k3s/sealedsecret/grafana-sealedsecret.yaml)으로 넣는다.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      # 노드·파드 자원, API 요청·오류 지표
+      - name: VictoriaMetrics
+        uid: vm
+        type: prometheus
+        access: proxy
+        url: http://victoria-metrics.monitoring.svc:8428
+        isDefault: true
+      # 질문 통계 (system 이 chat_log 테이블에 쌓는 질문 기록, 읽기 전용 계정)
+      - name: PostgreSQL
+        uid: pg
+        type: grafana-postgresql-datasource
+        url: postgres.rag-portfolio.svc.cluster.local:5432
+        user: grafana_ro
+        jsonData:
+          database: ${GRAFANA_DB_NAME}
+          sslmode: disable
+          postgresVersion: 1700
+        secureJsonData:
+          password: ${GRAFANA_DB_PASSWORD}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: rag-portfolio
+        folder: RAG Portfolio
+        type: file
+        # 대시보드는 저장소의 k3s/monitoring/dashboards/*.json 이 원본이다. 화면에서 고친 내용은 저장되지 않는다
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: monitoring
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  revisionHistoryLimit: 1
+  replicas: 1
+  # PVC 가 ReadWriteOnce 라서 새 파드를 띄우기 전에 이전 파드를 내린다
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472   # grafana 이미지의 사용자. PVC 에 쓸 수 있게 한다
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.3.0
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: grafana-secret   # GF_SECURITY_ADMIN_PASSWORD, GRAFANA_DB_NAME, GRAFANA_DB_PASSWORD
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SERVER_ROOT_URL
+              value: https://grafana.sjhan.com
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_REPORTING_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+              value: "false"
+            - name: GF_NEWS_NEWS_FEED_ENABLED
+              value: "false"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+          resources:
+            requests:
+              memory: "96Mi"
+              cpu: "50m"
+            limits:
+              memory: "320Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: grafana-data
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 80
+      targetPort: 3000
+      name: http
