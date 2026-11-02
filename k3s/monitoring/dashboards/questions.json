@@ -26,7 +26,7 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -71,9 +71,9 @@
         "uid": "pg"
       },
       "gridPos": {
-        "x": 6,
+        "x": 5,
         "y": 0,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -113,15 +113,81 @@
     {
       "id": 3,
       "type": "stat",
+      "title": "답변 못 한 비율",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pg"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pg"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT avg((status = 'unanswered')::int) AS \"비율\" FROM chat_log WHERE $__timeFilter(created_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.2
+              },
+              {
+                "color": "red",
+                "value": 0.4
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "description": "문서에 정보가 없어 정해진 거절 문장으로 답한 비율. 높으면 자기소개 문서를 보강할 때다"
+    },
+    {
+      "id": 4,
+      "type": "stat",
       "title": "실패율",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "pg"
       },
       "gridPos": {
-        "x": 12,
+        "x": 15,
         "y": 0,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -173,10 +239,11 @@
         "graphMode": "area",
         "textMode": "auto",
         "justifyMode": "auto"
-      }
+      },
+      "description": "Gemini·DB 오류로 답변하지 못한 비율"
     },
     {
-      "id": 4,
+      "id": 5,
       "type": "stat",
       "title": "평균 첫 응답",
       "datasource": {
@@ -184,9 +251,9 @@
         "uid": "pg"
       },
       "gridPos": {
-        "x": 18,
+        "x": 20,
         "y": 0,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -241,7 +308,7 @@
       }
     },
     {
-      "id": 5,
+      "id": 6,
       "type": "timeseries",
       "title": "시간대별 질문 수",
       "datasource": {
@@ -290,7 +357,7 @@
       }
     },
     {
-      "id": 6,
+      "id": 7,
       "type": "table",
       "title": "자주 나온 질문",
       "datasource": {
@@ -325,7 +392,7 @@
       }
     },
     {
-      "id": 7,
+      "id": 8,
       "type": "table",
       "title": "답변 근거로 자주 쓰인 섹션",
       "datasource": {
@@ -360,9 +427,9 @@
       }
     },
     {
-      "id": 8,
+      "id": 9,
       "type": "table",
-      "title": "근거가 부족했던 질문 (문서 보강 후보)",
+      "title": "답변하지 못한 질문 (문서 보강 후보)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "pg"
@@ -383,7 +450,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT max(created_at) AS \"마지막\", question AS \"질문\", max((s->>'score')::numeric) AS \"최고 점수\" FROM chat_log, jsonb_array_elements(sources) AS s WHERE $__timeFilter(created_at) GROUP BY question HAVING max((s->>'score')::numeric) < 0.5 ORDER BY 3 LIMIT 20"
+          "rawSql": "SELECT max(created_at) AS \"마지막\", question AS \"질문\", count(*) AS \"횟수\", CASE WHEN bool_or(status = 'unanswered') THEN '거절 문장으로 답함' ELSE '근거 점수 낮음' END AS \"이유\" FROM chat_log c WHERE $__timeFilter(created_at) AND (status = 'unanswered' OR (SELECT max((s->>'score')::numeric) FROM jsonb_array_elements(c.sources) AS s) < 0.5) GROUP BY question ORDER BY 1 DESC LIMIT 20"
         }
       ],
       "fieldConfig": {
@@ -393,10 +460,10 @@
       "options": {
         "showHeader": true
       },
-      "description": "가장 비슷한 섹션의 검색 점수(코사인 유사도 + 제목 일치 가산점)도 0.5 미만인 질문. 자기소개 문서에 관련 내용을 추가하면 답변이 좋아진다"
+      "description": "문서에 정보가 없어 거절 문장으로 답했거나, 가장 비슷한 섹션의 검색 점수(코사인 유사도 + 제목 일치 가산점)도 0.5 미만인 질문. 자기소개 문서에 관련 내용을 추가하면 답변이 좋아진다"
     },
     {
-      "id": 9,
+      "id": 10,
       "type": "table",
       "title": "실패한 질문",
       "datasource": {
@@ -431,7 +498,7 @@
       }
     },
     {
-      "id": 10,
+      "id": 11,
       "type": "table",
       "title": "최근 질문",
       "datasource": {
@@ -454,7 +521,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT created_at AS \"시간\", question AS \"질문\", status AS \"결과\", history_turns AS \"이전 대화\", round(first_token_ms / 1000.0, 1) AS \"첫 응답(초)\", round(duration_ms / 1000.0, 1) AS \"전체(초)\", answer_chars AS \"답변 글자\" FROM chat_log WHERE $__timeFilter(created_at) ORDER BY created_at DESC LIMIT 100"
+          "rawSql": "SELECT created_at AS \"시간\", question AS \"질문\", CASE status WHEN 'ok' THEN '정상' WHEN 'unanswered' THEN '답변 못 함' WHEN 'error' THEN '실패' ELSE '중간 취소' END AS \"결과\", answer AS \"답변\", history_turns AS \"이전 대화\", round(first_token_ms / 1000.0, 1) AS \"첫 응답(초)\", round(duration_ms / 1000.0, 1) AS \"전체(초)\", answer_chars AS \"답변 글자\" FROM chat_log WHERE $__timeFilter(created_at) ORDER BY created_at DESC LIMIT 100"
         }
       ],
       "fieldConfig": {
