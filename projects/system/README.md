@@ -13,7 +13,7 @@ system/
 │   ├── ingest.py           # 문서 → 임베딩 → pgvector 저장
 │   └── search.py           # 질문을 넣어 검색 결과·유사도 확인
 ├── src/                    # 비즈니스 로직
-│   ├── domain.py           # 도메인 객체 (Chunk, SearchResult)
+│   ├── domain.py           # 도메인 객체 (Chunk, SearchResult, ChatLog)
 │   ├── settings.py         # 환경 설정
 │   ├── database/
 │   │   └── connection.py   # asyncpg 커넥션 풀 (pgvector 타입 등록)
@@ -26,14 +26,17 @@ system/
 │   │   └── repository.py   # profile_chunk 테이블 저장·유사도 검색
 │   ├── retriever/
 │   │   └── manager.py      # 적재(ingest)·검색 비즈니스 로직
-│   └── chat/
-│       ├── prompt.py       # 시스템 프롬프트, 문서 컨텍스트 구성
-│       └── manager.py      # Gemini API 스트리밍 호출
+│   ├── chat/
+│   │   ├── prompt.py       # 시스템 프롬프트, 문서 컨텍스트 구성
+│   │   └── manager.py      # Gemini API 스트리밍 호출
+│   └── chat_log/
+│       └── repository.py   # 질문 기록(chat_log 테이블) 생성·저장
 └── webapp/                 # FastAPI 애플리케이션
     ├── app.py              # 앱 생성, DB 풀 lifespan
     ├── dependency.py       # Manager 의존성 주입
     ├── dto.py              # 요청/응답 DTO
     ├── rate_limit.py       # IP별 요청 제한
+    ├── metrics.py          # Prometheus 지표 (/metrics)
     └── routers/
         └── chat.py         # /api/chat (SSE), /api/config
 ```
@@ -74,6 +77,9 @@ API는 http://localhost:8000/api 에서 동작합니다. 채팅 화면은 [`proj
 |---|---|---|
 | GET | `/api/config` | 이름, LLM 사용 가능 여부 |
 | POST | `/api/chat` | `{question, history}` → SSE 스트림 (`sources` → `delta`… → `done`, 실패 시 `error`) |
+| GET | `/metrics` | Prometheus 지표 (요청 수·지연, 질문·답변 수). nginx 가 넘기지 않아 클러스터 안에서만 접근 |
+
+질문마다 결과(정상·실패·중간 취소), 소요 시간, 근거 섹션을 `chat_log` 테이블에 저장합니다. 테이블은 서버가 시작할 때 없으면 만듭니다. Grafana 질문 통계 대시보드가 이 테이블을 읽습니다 ([k3s/README.md](../../k3s/README.md) 7장).
 
 ## 배포
 
