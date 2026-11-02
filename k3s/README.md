@@ -216,7 +216,7 @@ Secret별 키:
 | react-app | 요청 16Mi · 상한 64Mi | 이미지 약 0.05GB |
 | cloudflared | 요청 64Mi · 상한 256Mi | 이미지 약 0.05GB |
 | victoria-metrics | 요청 96Mi · 상한 256Mi | PVC 2Gi |
-| grafana | 요청 96Mi · 상한 320Mi | PVC 1Gi |
+| grafana | 요청 256Mi · 상한 512Mi | PVC 1Gi |
 | kube-state-metrics | 요청 32Mi · 상한 96Mi | - |
 | node-exporter (노드마다) | 요청 16Mi · 상한 48Mi | - |
 
