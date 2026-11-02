@@ -17,7 +17,7 @@ HTTP_DURATION = Histogram(
 
 LATENCY_BUCKETS = (0.5, 1, 2, 3, 5, 10, 20, 30, 60, 90, 120)
 CHAT_QUESTIONS = Counter("chat_questions_total", "받은 질문 수")
-CHAT_ANSWERS = Counter("chat_answers_total", "끝난 답변 수", ["result"])  # ok | error | cancelled
+CHAT_ANSWERS = Counter("chat_answers_total", "끝난 답변 수", ["result"])  # ok | unanswered | error | cancelled
 CHAT_FIRST_TOKEN = Histogram(
     "chat_first_token_seconds", "질문부터 첫 답변 조각까지 걸린 시간", buckets=LATENCY_BUCKETS
 )
