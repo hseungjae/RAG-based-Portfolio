@@ -518,7 +518,7 @@
             "type": "prometheus",
             "uid": "vm"
           },
-          "expr": "sum by (result) (increase(chat_answers_total[1h]))",
+          "expr": "sum by (result) (increase(chat_answers_total[$__interval]))",
           "legendFormat": "{{result}}",
           "editorMode": "code",
           "range": true
@@ -529,6 +529,7 @@
           "decimals": 0,
           "custom": {
             "drawStyle": "bars",
+            "barAlignment": -1,
             "fillOpacity": 60,
             "stacking": {
               "mode": "normal"
@@ -609,7 +610,8 @@
           "sort": "desc"
         }
       },
-      "description": "ok: 정상 / unanswered: 문서에 정보가 없어 거절 문장으로 답함 / error: Gemini·DB 오류 / cancelled: 답변 중 방문자가 창을 닫음"
+      "description": "ok: 정상 / unanswered: 문서에 정보가 없어 거절 문장으로 답함 / error: Gemini·DB 오류 / cancelled: 답변 중 방문자가 창을 닫음",
+      "interval": "1h"
     }
   ]
 }
