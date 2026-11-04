@@ -17,7 +17,7 @@
 ## 연락처
 - 이메일: hanseungjae0812@gmail.com
 - GitHub: https://github.com/hseungjae
-- 포트폴리오(Notion): https://hseungjae.notion.site/portfolio
+- 포트폴리오(Notion): https://hanseungjae.notion.site/3db1054ec52d8075b998cf292cbfdbea
 - LinkedIn 프로필도 있습니다. 링크는 Notion 포트폴리오에서 확인할 수 있습니다.
 
 ## 기술 스택
