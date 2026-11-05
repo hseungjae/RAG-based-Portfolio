@@ -1,0 +1,12 @@
+# Jenkins 데이터(/var/jenkins_home: 설정, 플러그인, 빌드 기록). k3s 기본 스토리지(local-path)라 처음 뜬 노드(k3s-2)에 고정된다.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-pvc
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 4Gi
