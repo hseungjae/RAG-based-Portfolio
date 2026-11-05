@@ -1,5 +1,7 @@
 # RAG-based Portfolio
 
+[![CI](https://github.com/hseungjae/RAG-based-Portfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/hseungjae/RAG-based-Portfolio/actions/workflows/ci.yml)
+
 ## 프로젝트 개요
 
 RAG-based Portfolio는 자기소개 문서를 근거로 1인칭으로 답변하는 RAG(Retrieval-Augmented Generation) 챗봇입니다.
@@ -11,11 +13,13 @@ FastAPI 기반 RAG 서비스와 React 웹 화면으로 구성되며, k3s 클러�
 * **React App**: 다크 모드를 지원하는 반응형 채팅 화면(React + TypeScript + Tailwind CSS + shadcn/ui). nginx가 빌드 결과를 제공하고 `/api` 요청은 System으로 넘깁니다.
 * **Monitoring**: VictoriaMetrics + Grafana로 노드·파드 자원, API 요청·오류, 방문자 질문 통계를 대시보드로 봅니다.
 * **Infra**: k3s(노드 2대)에 React App, System, PostgreSQL, Cloudflare Tunnel을 배포하고, 시크릿은 Sealed Secrets로 암호화해 관리합니다.
+* **CI**: GitHub Actions가 push·PR마다 System 테스트(pytest)와 React App lint·빌드를 돌립니다.
 
 ## 폴더 구조 및 주요 파일
 
 ```
 RAG-based-Portfolio/
+├── .github/workflows/  # CI (System 테스트, React App lint·빌드)
 ├── docs/               # 프로젝트 관련 문서 (아키텍처, 로컬 실행, 터널 공개)
 ├── deploy/             # 로컬 개발 환경
 │   ├── local/          # pgvector PostgreSQL (docker compose)
