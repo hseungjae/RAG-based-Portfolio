@@ -1,0 +1,111 @@
+// main 브랜치가 바뀌면 바뀐 부분만 이미지로 빌드해 GHCR 에 올리고 k3s 에 배포한다.
+// 테스트는 GitHub Actions(.github/workflows/ci.yml)가 맡고, 여기서는 빌드·배포만 한다.
+// Jenkins 설치와 처음 설정은 k3s/README.md 8장 참고.
+pipeline {
+  agent {
+    kubernetes {
+      yamlFile 'k3s/cluster/cicd/agent-pod.yaml'
+    }
+  }
+  options {
+    disableConcurrentBuilds()
+    timeout(time: 30, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+  environment {
+    REPO_URL = 'https://github.com/hseungjae/RAG-based-Portfolio'
+    REGISTRY = 'ghcr.io/hseungjae/rag-based-portfolio'
+    NAMESPACE = 'rag-portfolio'
+  }
+  stages {
+    stage('Changes') {
+      steps {
+        script {
+          env.TAG = env.GIT_COMMIT.substring(0, 7)
+          // 마지막으로 성공한 빌드 이후 바뀐 파일. 첫 빌드면 전부 빌드한다
+          def base = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT
+          def files = base ? sh(script: "git diff --name-only ${base} ${env.GIT_COMMIT}", returnStdout: true).tokenize('\n') : null
+          env.BUILD_SYSTEM = changed(files, 'projects/system/')
+          env.BUILD_REACT_APP = changed(files, 'projects/react-app/')
+          env.RUN_INGEST = changed(files, 'projects/system/dataset/')
+          echo "태그 ${env.TAG}: system=${env.BUILD_SYSTEM}, react-app=${env.BUILD_REACT_APP}, 문서 적재=${env.RUN_INGEST}"
+        }
+      }
+    }
+    stage('Build system') {
+      when { environment name: 'BUILD_SYSTEM', value: 'true' }
+      steps { buildImage('system') }
+    }
+    stage('Build react-app') {
+      when { environment name: 'BUILD_REACT_APP', value: 'true' }
+      steps { buildImage('react-app') }
+    }
+    stage('Deploy system') {
+      when { environment name: 'BUILD_SYSTEM', value: 'true' }
+      steps { deploy('system') }
+    }
+    stage('Deploy react-app') {
+      when { environment name: 'BUILD_REACT_APP', value: 'true' }
+      steps { deploy('react-app') }
+    }
+    stage('Ingest profile') {
+      when { environment name: 'RUN_INGEST', value: 'true' }
+      steps {
+        container('kubectl') {
+          // 자기소개 문서가 바뀌었으면 새 이미지로 적재 Job 을 다시 돌린다
+          sh """
+            kubectl -n ${env.NAMESPACE} delete job system-ingest --ignore-not-found --wait
+            kubectl set image --local -o yaml -f k3s/application/system-ingest-job.yaml ingest=${env.REGISTRY}/system:${env.TAG} \\
+              | kubectl apply -f -
+            kubectl -n ${env.NAMESPACE} wait --for=condition=complete job/system-ingest --timeout=10m
+            kubectl -n ${env.NAMESPACE} logs job/system-ingest --tail=3
+          """
+        }
+      }
+    }
+  }
+}
+
+// files 중 prefix 아래 파일이 있으면 'true'. README·테스트처럼 이미지에 들어가지 않는 파일은 뺀다
+def changed(List files, String prefix) {
+  if (files == null) {
+    return 'true'
+  }
+  for (f in files) {
+    if (f.startsWith(prefix) && !f.endsWith('README.md') && !f.startsWith(prefix + 'tests/') && !f.startsWith(prefix + 'docs/')) {
+      return 'true'
+    }
+  }
+  return 'false'
+}
+
+// 커밋 해시 태그와 latest 태그로 GHCR 에 올린다. 빌드 캐시도 GHCR 에 둬서 다음 빌드를 빠르게 한다
+def buildImage(String name) {
+  def image = "${env.REGISTRY}/${name}"
+  container('buildkit') {
+    sh """
+      buildctl build \\
+        --frontend dockerfile.v0 \\
+        --local context=projects/${name} \\
+        --local dockerfile=projects/${name} \\
+        --opt label:org.opencontainers.image.source=${env.REPO_URL} \\
+        --output type=image,\\"name=${image}:${env.TAG},${image}:latest\\",push=true \\
+        --import-cache type=registry,ref=${image}:buildcache \\
+        --export-cache type=registry,ref=${image}:buildcache,mode=max
+    """
+  }
+}
+
+// 이미지를 교체하고, 새 파드가 5분 안에 준비되지 않으면 이전 버전으로 되돌린다
+def deploy(String name) {
+  def patch = """{"spec":{"template":{"spec":{"containers":[{"name":"${name}","image":"${env.REGISTRY}/${name}:${env.TAG}","imagePullPolicy":"IfNotPresent"}]}}}}"""
+  container('kubectl') {
+    sh """
+      kubectl -n ${env.NAMESPACE} patch deployment/${name} -p '${patch}'
+      if ! kubectl -n ${env.NAMESPACE} rollout status deployment/${name} --timeout=5m; then
+        kubectl -n ${env.NAMESPACE} rollout undo deployment/${name}
+        exit 1
+      fi
+    """
+  }
+}
