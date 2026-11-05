@@ -30,7 +30,7 @@ RAG-based-Portfolio/
 │   ├── infra/          # PostgreSQL(pgvector), Cloudflare Tunnel
 │   ├── cluster/        # 클러스터 공용 구성
 │   │   ├── monitoring/ # VictoriaMetrics, Grafana, 대시보드
-│   │   └── cicd/       # Jenkins 빌드 에이전트, 배포 권한
+│   │   └── cicd/       # Jenkins 본체, 빌드 에이전트, 배포 권한
 │   └── sealedsecret/   # Sealed Secrets로 암호화한 시크릿
 └── projects/           # 서비스 코어 (System, React App)
     ├── system/         # FastAPI 기반 RAG 백엔드
