@@ -1,0 +1,4 @@
+# 테스트 실행용 의존성 (이미지에는 들어가지 않는다)
+-r requirements.txt
+pytest>=8
+httpx2>=2.0   # FastAPI TestClient (starlette 1.10 부터 httpx 대신 사용)
