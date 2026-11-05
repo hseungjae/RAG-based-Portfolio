@@ -10,7 +10,7 @@ Ubuntu 서버 2대로 만든 k3s 클러스터에서 챗봇, DB, Cloudflare Tunne
 | 노드 | 내부 IP | 역할 |
 |---|---|---|
 | k3s-1 | 10.0.0.163 | control plane (kubectl, helm 은 여기서) |
-| k3s-2 | 10.0.0.135 | agent (워커, Jenkins) |
+| k3s-2 | 10.0.0.135 | agent (워커) |
 
 ## 폴더 구조
 
@@ -34,9 +34,8 @@ k3s/
 │   │   ├── kube-state-metrics.yaml  # 파드 상태·재시작·limit
 │   │   ├── grafana.yaml             # Grafana + 데이터 소스·대시보드 자동 등록
 │   │   └── dashboards/              # 클러스터 자원, API 요청·오류, 질문 통계
-│   └── cicd/                  #   배포 자동화 (Jenkins, Helm 으로 설치, 8장)
+│   └── cicd/                  #   배포 자동화 (Jenkins 본체는 직접 설치, 8장)
 │       ├── namespace.yaml           # 네임스페이스 jenkins
-│       ├── values.yaml              # Jenkins Helm 차트 설정 (플러그인, 파이프라인 Job, 자원)
 │       ├── agent-pod.yaml           # 빌드 때만 뜨는 에이전트 파드 (BuildKit, kubectl)
 │       └── deployer-rbac.yaml       # 에이전트 권한: rag-portfolio 이미지 교체·롤백·적재 Job
 ├── sealedsecret/              # Sealed Secrets로 암호화한 시크릿 (커밋해도 안전)
@@ -60,7 +59,7 @@ k3s/
 | StatefulSet / Service | `postgres` | `database-secret` |
 | Deployment | `cloudflared` | `cloudflared-secret` |
 | Deployment / Service | `grafana` (monitoring) | `grafana-secret` |
-| StatefulSet / Service | `jenkins` (jenkins, Helm) | `jenkins`(차트가 만든 관리자 비밀번호), 에이전트는 `ghcr-push` |
+| Jenkins 본체 (jenkins, 직접 설치) | - | 빌드 에이전트가 `ghcr-push` 사용 |
 
 명령은 모두 k3s-1의 저장소 루트(`~/RAG-based-Portfolio/`)에서 실행한다고 가정합니다.
 
@@ -209,7 +208,7 @@ Secret별 키:
 | grafana | 요청 256Mi · 상한 512Mi | PVC 1Gi |
 | kube-state-metrics | 요청 32Mi · 상한 96Mi | - |
 | node-exporter (노드마다) | 요청 16Mi · 상한 48Mi | - |
-| jenkins (k3s-2) | 요청 768Mi · 상한 1.5Gi | PVC 4Gi |
+| jenkins 본체 (직접 설치, 권장값) | 요청 768Mi · 상한 1.5Gi | PVC 4Gi 정도 |
 | jenkins 빌드 에이전트 (빌드 중에만) | 요청 약 0.8Gi · 상한 약 2.6Gi | 빌드가 끝나면 사라짐 |
 
 - 디스크 20GB 중 OS를 빼면 여유가 크지 않습니다. 이미지는 k3s(containerd)가 GHCR 에서 받아 두고, 디스크가 85%를 넘으면 쓰지 않는 이미지부터 지웁니다. 예전에 수동 빌드하던 Docker 이미지는 `sudo docker image prune -a` 로 지워도 됩니다.
@@ -323,29 +322,33 @@ unset GHCR_TOKEN
 
 ### 8-2. 설치 (k3s-1)
 
+빌드 에이전트가 쓰는 네임스페이스·권한·시크릿을 먼저 만듭니다.
+
 ```bash
 git pull
 kubectl apply -f k3s/cluster/cicd/namespace.yaml
 kubectl apply -f k3s/cluster/cicd/deployer-rbac.yaml -f k3s/sealedsecret/ghcr-push-sealedsecret.yaml
-helm repo add jenkins https://charts.jenkins.io && helm repo update
-helm upgrade --install jenkins jenkins/jenkins --version 5.10.10 -n jenkins -f k3s/cluster/cicd/values.yaml
-kubectl -n jenkins rollout status statefulset/jenkins --timeout=10m   # 처음엔 플러그인 설치로 3~5분
-kubectl -n jenkins get secret ghcr-push                              # 시크릿이 풀렸는지 확인
+kubectl -n jenkins get secret ghcr-push   # 시크릿이 풀렸는지 확인
 ```
 
-`values.yaml` 을 고친 뒤에도 같은 `helm upgrade --install` 명령으로 반영합니다.
+Jenkins 본체는 직접 설치합니다. `jenkins/Jenkinsfile` 이 돌려면 아래가 맞아야 합니다.
+
+| 항목 | 설정 |
+|---|---|
+| 플러그인 | Pipeline, Git, Kubernetes (단계 화면은 Pipeline Graph View 권장) |
+| Kubernetes cloud | 네임스페이스 **`jenkins`** (에이전트 파드가 `jenkins-deployer` 계정과 `ghcr-push` 시크릿을 같은 네임스페이스에서 씀). Jenkins 계정에 이 네임스페이스의 파드 생성·삭제 권한 필요 |
+| 본체 executor | 0 (빌드는 에이전트 파드에서만) |
+| Job | 이름 `rag-portfolio`, 종류 Pipeline |
+| Job → Pipeline | Pipeline script from SCM → Git `https://github.com/hseungjae/RAG-based-Portfolio.git`, 브랜치 `*/main`, Script Path **`jenkins/Jenkinsfile`** |
+| Job → Build Triggers | Poll SCM `H/3 * * * *` (3분마다 확인) |
 
 ### 8-3. 접속 (Mac 에서 SSH 터널)
 
 ```bash
-ssh -L 8080:localhost:8080 <k3s-1 SSH 접속 정보> 'kubectl -n jenkins port-forward svc/jenkins 8080:8080'
+ssh -L 8080:localhost:8080 <k3s-1 SSH 접속 정보> 'kubectl -n jenkins port-forward svc/<Jenkins 서비스 이름> 8080:8080'
 ```
 
-http://localhost:8080 에 `hseungjae` 로 로그인합니다. 비밀번호는 차트가 무작위로 만들었습니다(k3s-1 에서 확인):
-
-```bash
-kubectl -n jenkins get secret jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 -d; echo
-```
+http://localhost:8080 에 설치할 때 만든 관리자 계정으로 로그인합니다.
 
 ### 8-4. 첫 빌드
 
@@ -356,6 +359,5 @@ kubectl -n jenkins get secret jenkins -o jsonpath='{.data.jenkins-admin-password
 | 하는 일 | 명령 |
 |---|---|
 | 지금 배포된 이미지 태그 | `kubectl -n rag-portfolio get deploy -o wide` |
-| Jenkins 파드 상태 | `kubectl -n jenkins get pods -o wide` |
-| Jenkins 로그 | `kubectl -n jenkins logs -f statefulset/jenkins -c jenkins` |
-| Jenkins 끄기 (메모리 확보) | `kubectl -n jenkins scale statefulset/jenkins --replicas=0` |
+| Jenkins·빌드 에이전트 파드 상태 | `kubectl -n jenkins get pods -o wide` |
+| 지금 도는 빌드 에이전트의 BuildKit 로그 | `kubectl -n jenkins logs -f <에이전트 파드> -c buildkit` |
