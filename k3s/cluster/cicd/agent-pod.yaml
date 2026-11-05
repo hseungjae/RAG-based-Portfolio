@@ -1,0 +1,49 @@
+# jenkins/Jenkinsfile 이 쓰는 에이전트 파드. 빌드할 때만 jenkins 네임스페이스에 떴다가 끝나면 사라진다.
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins-deployer   # rag-portfolio 의 Deployment·Job 만 바꿀 수 있다 (deployer-rbac.yaml)
+  containers:
+    # Jenkins 와 통신하고 git checkout 을 한다 (이미지는 Helm 차트 기본 에이전트와 같은 버전)
+    - name: jnlp
+      image: jenkins/inbound-agent:3395.v6e5377b_0fb_3c-2-jdk25
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          memory: "512Mi"
+    # 이미지 빌드·GHCR push. 파드 안에서 컨테이너 이미지를 만들려면 privileged 가 필요하다
+    - name: buildkit
+      image: moby/buildkit:v0.34.2
+      securityContext:
+        privileged: true
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "512Mi"
+        limits:
+          cpu: "1500m"
+          memory: "2Gi"
+      volumeMounts:
+        - name: ghcr-push
+          mountPath: /root/.docker   # buildctl 이 config.json 으로 GHCR 에 로그인한다
+          readOnly: true
+    # 배포 (kubectl 버전은 k3s v1.36 에 맞춘다)
+    - name: kubectl
+      image: alpine/k8s:1.36.5
+      command: ["sleep"]
+      args: ["infinity"]
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "32Mi"
+        limits:
+          memory: "128Mi"
+  volumes:
+    - name: ghcr-push
+      secret:
+        secretName: ghcr-push   # k3s/sealedsecret/ghcr-push-sealedsecret.yaml
+        items:
+          - key: .dockerconfigjson
+            path: config.json
