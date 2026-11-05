@@ -9,8 +9,8 @@ Ubuntu 서버 2대로 만든 k3s 클러스터에서 챗봇, DB, Cloudflare Tunne
 
 | 노드 | 내부 IP | 역할 |
 |---|---|---|
-| k3s-1 | 10.0.0.163 | control plane (kubectl, helm, 이미지 빌드는 여기서) |
-| k3s-2 | 10.0.0.135 | agent (워커) |
+| k3s-1 | 10.0.0.163 | control plane (kubectl, helm 은 여기서) |
+| k3s-2 | 10.0.0.135 | agent (워커, Jenkins) |
 
 ## 폴더 구조
 
@@ -25,25 +25,32 @@ k3s/
 ├── infra/                     # 인프라
 │   ├── database.yaml          #   pgvector PostgreSQL StatefulSet + 헤드리스 Service + 초기 스키마 ConfigMap
 │   └── cloudflared.yaml       #   Cloudflare Tunnel Deployment + 설정 ConfigMap
-├── monitoring/                # 모니터링 (kubectl apply -k 로 적용, 7장)
-│   ├── kustomization.yaml     #   대시보드 JSON 을 ConfigMap 으로 묶음
-│   ├── namespace.yaml         #   네임스페이스 monitoring
-│   ├── victoria-metrics.yaml  #   지표 수집·저장 (Prometheus 호환, 15일 보관)
-│   ├── node-exporter.yaml     #   노드 CPU·메모리·디스크 (DaemonSet)
-│   ├── kube-state-metrics.yaml#   파드 상태·재시작·limit
-│   ├── grafana.yaml           #   Grafana + 데이터 소스·대시보드 자동 등록
-│   └── dashboards/            #   클러스터 자원, API 요청·오류, 질문 통계
+├── cluster/                   # 클러스터 공용 구성 (서비스와 따로 관리)
+│   ├── monitoring/            #   모니터링 (kubectl apply -k 로 적용, 7장)
+│   │   ├── kustomization.yaml       # 대시보드 JSON 을 ConfigMap 으로 묶음
+│   │   ├── namespace.yaml           # 네임스페이스 monitoring
+│   │   ├── victoria-metrics.yaml    # 지표 수집·저장 (Prometheus 호환, 15일 보관)
+│   │   ├── node-exporter.yaml       # 노드 CPU·메모리·디스크 (DaemonSet)
+│   │   ├── kube-state-metrics.yaml  # 파드 상태·재시작·limit
+│   │   ├── grafana.yaml             # Grafana + 데이터 소스·대시보드 자동 등록
+│   │   └── dashboards/              # 클러스터 자원, API 요청·오류, 질문 통계
+│   └── cicd/                  #   배포 자동화 (Jenkins, Helm 으로 설치, 8장)
+│       ├── namespace.yaml           # 네임스페이스 jenkins
+│       ├── values.yaml              # Jenkins Helm 차트 설정 (플러그인, 파이프라인 Job, 자원)
+│       ├── agent-pod.yaml           # 빌드 때만 뜨는 에이전트 파드 (BuildKit, kubectl)
+│       └── deployer-rbac.yaml       # 에이전트 권한: rag-portfolio 이미지 교체·롤백·적재 Job
 ├── sealedsecret/              # Sealed Secrets로 암호화한 시크릿 (커밋해도 안전)
 │   ├── system-sealedsecret.yaml       # GEMINI_API_KEY
 │   ├── database-sealedsecret.yaml     # POSTGRES_USER/PASSWORD/DB, DATABASE_URL
 │   ├── cloudflared-sealedsecret.yaml  # 터널 자격 증명(credentials.json)
-│   └── grafana-sealedsecret.yaml      # Grafana 관리자 비밀번호, DB 읽기 전용 계정
+│   ├── grafana-sealedsecret.yaml      # Grafana 관리자 비밀번호, DB 읽기 전용 계정
+│   └── ghcr-push-sealedsecret.yaml    # GHCR 이미지 push 토큰 (8-1 에서 만듦)
 └── sealed-secret.pem          # 봉인용 공개 인증서 (커밋해도 안전)
 ```
 
 - 시크릿은 클러스터의 sealed-secrets 컨트롤러 공개키로 암호화해 `sealedsecret/`에 둡니다. 컨트롤러가 클러스터 안에서만 풀어 진짜 Secret을 만듭니다.
 - 평문 시크릿은 봉인할 때만 `k3s/secrets/`에 잠깐 만들고 지웁니다. 이 폴더는 `.gitignore`로 커밋되지 않습니다.
-- 이미지 2개(`system`, `react-app`)를 k3s-1에서 직접 빌드해 **두 노드 모두에** 넣습니다(레지스트리 없음, `imagePullPolicy: Never`).
+- 이미지 2개(`system`, `react-app`)는 Jenkins 가 빌드해 GHCR(`ghcr.io/hseungjae/rag-based-portfolio/*`, 공개)에 올리고, 노드는 GHCR 에서 받습니다 (8장).
 
 | 리소스 | 이름 | 사용하는 Secret |
 |---|---|---|
@@ -53,6 +60,7 @@ k3s/
 | StatefulSet / Service | `postgres` | `database-secret` |
 | Deployment | `cloudflared` | `cloudflared-secret` |
 | Deployment / Service | `grafana` (monitoring) | `grafana-secret` |
+| StatefulSet / Service | `jenkins` (jenkins, Helm) | `jenkins`(차트가 만든 관리자 비밀번호), 에이전트는 `ghcr-push` |
 
 명령은 모두 k3s-1의 저장소 루트(`~/RAG-based-Portfolio/`)에서 실행한다고 가정합니다.
 
@@ -113,29 +121,18 @@ chmod 600 ~/sealed-secrets-key-backup.yaml
 
 이 파일은 **절대 GitHub에 올리지 마세요.** 이게 있으면 `sealedsecret/`을 전부 풀 수 있습니다. 새 클러스터에 복원할 때는 컨트롤러를 설치하기 **전에** `kubectl apply -f ~/sealed-secrets-key-backup.yaml`을 먼저 실행합니다.
 
-## 2. 이미지 빌드 · 배포
+## 2. 배포
 
-이미지 2개를 빌드해 k3s-1에 넣고, k3s-2에도 보냅니다.
-
-```bash
-sudo docker build -t system:latest projects/system
-sudo docker build -t react-app:latest projects/react-app
-sudo docker save system:latest react-app:latest -o ~/rag-portfolio.tar && sudo chown $USER ~/rag-portfolio.tar
-sudo k3s ctr images import ~/rag-portfolio.tar
-scp ~/rag-portfolio.tar ubuntu@10.0.0.135:~ && ssh -t ubuntu@10.0.0.135 'sudo k3s ctr images import ~/rag-portfolio.tar && rm ~/rag-portfolio.tar'
-rm ~/rag-portfolio.tar
-```
-
-> 파드가 이미지 없는 노드에 배정되면 `ErrImageNeverPull`로 뜨지 않으니, 반드시 두 노드 모두에 넣습니다.
+이미지는 Jenkins 가 빌드해 GHCR 에 올립니다(8장). 매니페스트는 GHCR 의 `:latest` 이미지를 받습니다.
 
 적용 순서는 네임스페이스 → 시크릿 → 인프라 → 애플리케이션입니다.
 
 ```bash
-kubectl apply -f k3s/application/namespace.yaml -f k3s/monitoring/namespace.yaml
+kubectl apply -f k3s/application/namespace.yaml -f k3s/cluster/monitoring/namespace.yaml
 kubectl apply -f k3s/sealedsecret/
 kubectl apply -f k3s/infra/
 kubectl apply -f k3s/application/
-kubectl apply -k k3s/monitoring/
+kubectl apply -k k3s/cluster/monitoring/
 ```
 
 `system-ingest` Job은 DB가 뜰 때까지 몇 번 실패하다가 성공합니다. 확인:
@@ -152,19 +149,12 @@ kubectl -n rag-portfolio logs job/system-ingest  # "N개 청크를 저장했습�
 
 ## 3. 코드 · 문서 수정 후 다시 배포
 
-```bash
-git pull
-# 2장의 "이미지 빌드 · 두 노드 import" 명령 실행
-kubectl -n rag-portfolio rollout restart deployment/system deployment/react-app
-sudo docker image prune -f   # 이전 이미지 정리 (디스크 절약)
-```
+main 에 push 하면 Jenkins 가 3분 안에 알아채서 **바뀐 이미지만** 빌드·배포합니다. 자기소개 문서(`projects/system/dataset/profile`)가 바뀌었으면 적재 Job 도 다시 돌립니다. 서버에서 따로 할 일은 없습니다.
 
-자기소개 문서(`projects/system/dataset/profile`)를 고쳤다면 적재도 다시 합니다.
-
-```bash
-kubectl -n rag-portfolio delete job system-ingest --ignore-not-found
-kubectl apply -f k3s/application/system-ingest-job.yaml
-```
+- 진행 상황: Jenkins 화면(8-3)의 `rag-portfolio` Job
+- 새 파드가 5분 안에 준비되지 않으면 Jenkins 가 이전 버전으로 되돌리고 빌드를 실패로 표시합니다.
+- 직접 되돌리기: `kubectl -n rag-portfolio rollout undo deployment/system` (react-app 도 같은 방식)
+- k3s 매니페스트(`k3s/` 아래 yaml)를 고친 것은 자동 반영되지 않으니 `kubectl apply` 로 직접 적용합니다. 이때 이미지가 `:latest` 로 바뀌지만, Jenkins 가 커밋 태그와 함께 `latest` 도 올리므로 내용은 같습니다.
 
 ## 4. 시크릿 값 바꾸기 (다시 봉인)
 
@@ -219,8 +209,10 @@ Secret별 키:
 | grafana | 요청 256Mi · 상한 512Mi | PVC 1Gi |
 | kube-state-metrics | 요청 32Mi · 상한 96Mi | - |
 | node-exporter (노드마다) | 요청 16Mi · 상한 48Mi | - |
+| jenkins (k3s-2) | 요청 768Mi · 상한 1.5Gi | PVC 4Gi |
+| jenkins 빌드 에이전트 (빌드 중에만) | 요청 약 0.8Gi · 상한 약 2.6Gi | 빌드가 끝나면 사라짐 |
 
-- 디스크 20GB 중 OS를 빼면 여유가 크지 않으니, 빌드 후 `sudo docker image prune -f`로 이전 이미지를 지웁니다. 이미지가 Docker와 k3s(containerd)에 한 벌씩 저장되기 때문입니다.
+- 디스크 20GB 중 OS를 빼면 여유가 크지 않습니다. 이미지는 k3s(containerd)가 GHCR 에서 받아 두고, 디스크가 85%를 넘으면 쓰지 않는 이미지부터 지웁니다. 예전에 수동 빌드하던 Docker 이미지는 `sudo docker image prune -a` 로 지워도 됩니다.
 - postgres는 k3s 기본 스토리지(local-path)를 써서 **처음 뜬 노드에 고정**됩니다. 그 노드가 꺼지면 DB도 멈춥니다.
 
 ## 7. 모니터링 (Grafana)
@@ -239,7 +231,7 @@ https://grafana.sjhan.com (Cloudflare Tunnel)
 | API 요청·오류 | VictoriaMetrics | 경로·상태 코드별 요청 수, 429, 첫 응답·전체 답변 지연, 답변 결과(ok/error/cancelled) |
 | 질문 통계 | PostgreSQL | 질문·방문자 수, 시간대별 질문, 자주 나온 질문, 근거가 부족했던 질문, 실패한 질문, 최근 질문 |
 
-- 대시보드 원본은 `monitoring/dashboards/*.json`입니다. Grafana 화면에서 고쳐도 저장되지 않으니, 화면에서 고친 뒤 JSON 을 내보내 이 파일을 바꾸고 `kubectl apply -k k3s/monitoring/` 합니다.
+- 대시보드 원본은 `cluster/monitoring/dashboards/*.json`입니다. Grafana 화면에서 고쳐도 저장되지 않으니, 화면에서 고친 뒤 JSON 을 내보내 이 파일을 바꾸고 `kubectl apply -k k3s/cluster/monitoring/` 합니다.
 - `/metrics` 는 nginx 가 넘기지 않으므로 외부에서는 볼 수 없습니다.
 - 질문 기록(`chat_log`)은 system 이 시작할 때 테이블을 만들고, 답변이 끝날 때마다 한 줄씩 저장합니다. 방문자 IP는 해시만 저장합니다.
 
@@ -282,7 +274,7 @@ Grafana 로그인 화면이 인터넷에 열리므로, Cloudflare 대시보드 *
 ### 7-3. 배포와 접속
 
 ```bash
-kubectl apply -k k3s/monitoring/
+kubectl apply -k k3s/cluster/monitoring/
 kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared
 kubectl -n monitoring get pods -o wide
 ```
@@ -296,3 +288,74 @@ kubectl -n monitoring get secret grafana-secret -o jsonpath='{.data.GF_SECURITY_
 > 관리자 아이디·비밀번호(`GF_SECURITY_ADMIN_USER`, `GF_SECURITY_ADMIN_PASSWORD`)는 Grafana 가 **처음 뜰 때만** 적용되고, 그 뒤로는 Grafana 저장소(PVC)에 있는 값을 씁니다.
 > 나중에 바꿀 때는 Grafana 화면(프로필 → Change password, Administration → Users)이나 API 로 계정을 바꾸고, 다음에 새로 설치할 때도 같도록 `grafana.yaml`과 시크릿도 함께 고쳐 둡니다.
 > 비밀번호 한 값만 다시 봉인하려면: `printf %s '<새 비밀번호>' | kubeseal --raw --scope strict --name grafana-secret --namespace monitoring --cert k3s/sealed-secret.pem` 결과로 `sealedsecret/grafana-sealedsecret.yaml`의 해당 줄을 바꿉니다.
+
+## 8. 배포 자동화 (Jenkins)
+
+```
+git push (main)
+  ├─ GitHub Actions: 테스트·lint·빌드 검사 (.github/workflows/ci.yml)
+  └─ Jenkins (3분마다 확인, jenkins/Jenkinsfile)
+       ├─ 마지막 성공 빌드 이후 바뀐 폴더 확인 (projects/system, projects/react-app, dataset)
+       ├─ BuildKit 으로 이미지 빌드 → GHCR push (커밋 해시 태그 + latest, 빌드 캐시도 GHCR)
+       ├─ kubectl 로 이미지 교체 → 5분 안에 준비되지 않으면 이전 버전으로 롤백
+       └─ 자기소개 문서가 바뀌었으면 적재 Job 다시 실행
+```
+
+- 빌드 에이전트는 빌드할 때만 파드로 떴다가 사라집니다. 이미지 빌드를 위해 BuildKit 컨테이너는 privileged 로 돕니다.
+- 에이전트 계정(`jenkins-deployer`)은 `rag-portfolio`의 Deployment 이미지 교체·롤백과 적재 Job 실행만 할 수 있습니다.
+- Jenkins 는 인터넷에 열지 않고 SSH 터널로만 접속합니다. 그래서 GitHub webhook 대신 3분마다 저장소를 확인합니다.
+
+### 8-1. 처음 한 번만: GHCR 토큰과 ghcr-push 시크릿 (Mac 에서)
+
+1. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate new token. Scope 는 `write:packages` 만 고릅니다(`read:packages` 가 같이 선택됨).
+2. 저장소 루트에서 토큰을 봉인합니다. 토큰은 화면과 셸 기록에 남지 않습니다.
+
+```bash
+read -rsp "GHCR 토큰: " GHCR_TOKEN && echo
+kubectl create secret docker-registry ghcr-push -n jenkins \
+  --docker-server=ghcr.io --docker-username=hseungjae --docker-password="$GHCR_TOKEN" \
+  --dry-run=client -o yaml \
+  | kubeseal --cert k3s/sealed-secret.pem -oyaml > k3s/sealedsecret/ghcr-push-sealedsecret.yaml
+unset GHCR_TOKEN
+```
+
+3. `k3s/sealedsecret/ghcr-push-sealedsecret.yaml` 을 커밋·push 합니다. 토큰이 만료되면 같은 방법으로 다시 봉인합니다.
+
+### 8-2. 설치 (k3s-1)
+
+```bash
+git pull
+kubectl apply -f k3s/cluster/cicd/namespace.yaml
+kubectl apply -f k3s/cluster/cicd/deployer-rbac.yaml -f k3s/sealedsecret/ghcr-push-sealedsecret.yaml
+helm repo add jenkins https://charts.jenkins.io && helm repo update
+helm upgrade --install jenkins jenkins/jenkins --version 5.10.10 -n jenkins -f k3s/cluster/cicd/values.yaml
+kubectl -n jenkins rollout status statefulset/jenkins --timeout=10m   # 처음엔 플러그인 설치로 3~5분
+kubectl -n jenkins get secret ghcr-push                              # 시크릿이 풀렸는지 확인
+```
+
+`values.yaml` 을 고친 뒤에도 같은 `helm upgrade --install` 명령으로 반영합니다.
+
+### 8-3. 접속 (Mac 에서 SSH 터널)
+
+```bash
+ssh -L 8080:localhost:8080 <k3s-1 SSH 접속 정보> 'kubectl -n jenkins port-forward svc/jenkins 8080:8080'
+```
+
+http://localhost:8080 에 `hseungjae` 로 로그인합니다. 비밀번호는 차트가 무작위로 만들었습니다(k3s-1 에서 확인):
+
+```bash
+kubectl -n jenkins get secret jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 -d; echo
+```
+
+### 8-4. 첫 빌드
+
+1. Jenkins 화면에서 `rag-portfolio` → **지금 빌드**(Build Now). 3분마다 확인하는 자동 빌드는 한 번 빌드한 뒤부터 동작합니다.
+2. 첫 빌드는 이미지 2개를 모두 빌드합니다. GHCR 패키지는 처음에 **Private** 로 만들어져 노드가 받지 못하므로, Build 단계가 끝나면 GitHub 프로필 → Packages → `rag-based-portfolio/system`, `rag-based-portfolio/react-app` 각각 Package settings → Change visibility → **Public** 으로 바꿉니다.
+3. Deploy 단계가 그 전에 실패했다면 이전 버전으로 자동 롤백되어 서비스는 그대로입니다. Public 으로 바꾼 뒤 다시 **지금 빌드** 를 누릅니다.
+
+| 하는 일 | 명령 |
+|---|---|
+| 지금 배포된 이미지 태그 | `kubectl -n rag-portfolio get deploy -o wide` |
+| Jenkins 파드 상태 | `kubectl -n jenkins get pods -o wide` |
+| Jenkins 로그 | `kubectl -n jenkins logs -f statefulset/jenkins -c jenkins` |
+| Jenkins 끄기 (메모리 확보) | `kubectl -n jenkins scale statefulset/jenkins --replicas=0` |
