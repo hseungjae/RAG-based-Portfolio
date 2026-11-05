@@ -10,7 +10,7 @@ Ubuntu 서버 2대로 만든 k3s 클러스터에서 챗봇, DB, Cloudflare Tunne
 | 노드 | 내부 IP | 역할 |
 |---|---|---|
 | k3s-1 | 10.0.0.163 | control plane (kubectl, helm 은 여기서) |
-| k3s-2 | 10.0.0.135 | agent (워커) |
+| k3s-2 | 10.0.0.135 | agent (워커, Jenkins) |
 
 ## 폴더 구조
 
@@ -34,8 +34,13 @@ k3s/
 │   │   ├── kube-state-metrics.yaml  # 파드 상태·재시작·limit
 │   │   ├── grafana.yaml             # Grafana + 데이터 소스·대시보드 자동 등록
 │   │   └── dashboards/              # 클러스터 자원, API 요청·오류, 질문 통계
-│   └── cicd/                  #   배포 자동화 (Jenkins 본체는 직접 설치, 8장)
+│   └── cicd/                  #   배포 자동화 (kubectl apply -k 로 적용, 8장)
+│       ├── kustomization.yaml       # 적용할 리소스 목록 (agent-pod.yaml 은 제외)
 │       ├── namespace.yaml           # 네임스페이스 jenkins
+│       ├── deployment.yaml          # Jenkins 본체 (LTS, k3s-2)
+│       ├── service.yaml             # jenkins:8080 화면, jenkins:50000 에이전트 접속
+│       ├── volume.yaml              # Jenkins 데이터 PVC 4Gi
+│       ├── service-account.yaml     # Jenkins 본체 권한: 에이전트 파드 생성·삭제
 │       ├── agent-pod.yaml           # 빌드 때만 뜨는 에이전트 파드 (BuildKit, kubectl)
 │       └── deployer-rbac.yaml       # 에이전트 권한: rag-portfolio 이미지 교체·롤백·적재 Job
 ├── sealedsecret/              # Sealed Secrets로 암호화한 시크릿 (커밋해도 안전)
@@ -59,7 +64,7 @@ k3s/
 | StatefulSet / Service | `postgres` | `database-secret` |
 | Deployment | `cloudflared` | `cloudflared-secret` |
 | Deployment / Service | `grafana` (monitoring) | `grafana-secret` |
-| Jenkins 본체 (jenkins, 직접 설치) | - | 빌드 에이전트가 `ghcr-push` 사용 |
+| Deployment / Service | `jenkins` (jenkins) | - (빌드 에이전트 파드가 `ghcr-push` 사용) |
 
 명령은 모두 k3s-1의 저장소 루트(`~/RAG-based-Portfolio/`)에서 실행한다고 가정합니다.
 
@@ -208,7 +213,7 @@ Secret별 키:
 | grafana | 요청 256Mi · 상한 512Mi | PVC 1Gi |
 | kube-state-metrics | 요청 32Mi · 상한 96Mi | - |
 | node-exporter (노드마다) | 요청 16Mi · 상한 48Mi | - |
-| jenkins 본체 (직접 설치, 권장값) | 요청 768Mi · 상한 1.5Gi | PVC 4Gi 정도 |
+| jenkins (k3s-2) | 요청 768Mi · 상한 1.5Gi | PVC 4Gi |
 | jenkins 빌드 에이전트 (빌드 중에만) | 요청 약 0.8Gi · 상한 약 2.6Gi | 빌드가 끝나면 사라짐 |
 
 - 디스크 20GB 중 OS를 빼면 여유가 크지 않습니다. 이미지는 k3s(containerd)가 GHCR 에서 받아 두고, 디스크가 85%를 넘으면 쓰지 않는 이미지부터 지웁니다. 예전에 수동 빌드하던 Docker 이미지는 `sudo docker image prune -a` 로 지워도 됩니다.
@@ -325,29 +330,26 @@ grep -E "kind:|namespace:|dockerconfigjson" k3s/sealedsecret/ghcr-push-sealedsec
 
 ### 8-2. 설치 (k3s-1)
 
-빌드 에이전트가 쓰는 네임스페이스·권한·시크릿을 먼저 만듭니다.
+Jenkins 본체와 빌드 에이전트용 권한을 kustomize 로 한 번에 적용합니다. `ghcr-push` 시크릿은 8-1 에서 봉인한 파일입니다.
 
 ```bash
 git pull
-kubectl apply -f k3s/cluster/cicd/namespace.yaml
-kubectl apply -f k3s/cluster/cicd/deployer-rbac.yaml -f k3s/sealedsecret/ghcr-push-sealedsecret.yaml
+kubectl apply -k k3s/cluster/cicd/
+kubectl apply -f k3s/sealedsecret/ghcr-push-sealedsecret.yaml
+kubectl -n jenkins rollout status deployment/jenkins --timeout=10m
+kubectl -n jenkins get pods,svc,pvc
 kubectl -n jenkins get secret ghcr-push   # 시크릿이 풀렸는지 확인
 ```
 
-Jenkins 본체는 직접 설치합니다. `jenkins/Jenkinsfile` 이 돌려면 아래가 맞아야 합니다.
-
-| 항목 | 설정 |
+| 파일 | 내용 |
 |---|---|
-| 플러그인 | Pipeline, Git, Kubernetes (단계 화면은 Pipeline Graph View 권장) |
-| Kubernetes cloud | 네임스페이스 **`jenkins`** (에이전트 파드가 `jenkins-deployer` 계정과 `ghcr-push` 시크릿을 같은 네임스페이스에서 씀). Jenkins 계정에 이 네임스페이스의 파드 생성·삭제 권한 필요 |
-| 본체 executor | 0 (빌드는 에이전트 파드에서만) |
-| Job | 이름 `rag-portfolio`, 종류 Pipeline |
-| Job → Pipeline | Pipeline script from SCM → Git `https://github.com/hseungjae/RAG-based-Portfolio.git`, 브랜치 `*/main`, Script Path **`jenkins/Jenkinsfile`** |
-| Job → Build Triggers | Poll SCM `H/3 * * * *` (3분마다 확인) |
+| `deployment.yaml` | Jenkins LTS(`jenkins/jenkins:2.580.2-lts-jdk21`), k3s-2 고정, 메모리 요청 768Mi · 상한 1.5Gi |
+| `service.yaml` | `jenkins:8080`(화면, 터널이 연결) · `jenkins:50000`(빌드 에이전트 접속) |
+| `volume.yaml` | `/var/jenkins_home` PVC 4Gi |
+| `service-account.yaml` | Jenkins 본체 계정 `jenkins-admin`: `jenkins` 네임스페이스의 파드 생성·삭제·exec 만 |
+| `deployer-rbac.yaml` | 빌드 에이전트 계정 `jenkins-deployer`: `rag-portfolio` 이미지 교체·롤백·적재 Job 만 |
 
-### 8-3. 접속 (jenkins.sjhan.com)
-
-터널 라우팅(`infra/cloudflared.yaml`)은 Jenkins 서비스가 `jenkins` 네임스페이스의 `jenkins:8080` 이라고 가정합니다. 이름이나 포트가 다르면 그 줄을 고칩니다.
+### 8-3. 접속과 처음 설정
 
 Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만들고, k3s-1 에서 터널 설정을 반영합니다.
 
@@ -356,16 +358,38 @@ cloudflared tunnel route dns rag-portfolio jenkins.sjhan.com        # Mac
 kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared   # k3s-1
 ```
 
-https://jenkins.sjhan.com 에 설치할 때 만든 관리자 계정으로 로그인합니다. 처음 한 번 Jenkins 설정을 맞춥니다.
+> Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. 접속하기 전에 Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 겁니다 (무료).
 
-| 위치 | 값 |
-|---|---|
-| Jenkins 관리 → System → Jenkins URL | `https://jenkins.sjhan.com/` (화면 링크와 리버스 프록시 경고용) |
-| Jenkins 관리 → Clouds → kubernetes → Jenkins URL | 클러스터 안 주소 그대로 `http://jenkins.jenkins.svc.cluster.local:8080` (에이전트는 터널을 거치지 않고 붙음) |
+1. **초기 비밀번호**: https://jenkins.sjhan.com 첫 화면(Unlock Jenkins)에 아래 값을 넣습니다.
 
-> Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 꼭 겁니다 (무료). Jenkins 의 회원 가입과 익명 읽기도 꺼 둡니다.
->
-> 3분마다 확인하는 대신 push 즉시 빌드하려면 GitHub webhook(`https://jenkins.sjhan.com/github-webhook/`)을 쓸 수 있습니다. 이때는 Jenkins 에 GitHub 플러그인을 설치해 Job 트리거를 "GitHub hook trigger for GITScm polling" 으로 바꾸고, Access 정책에서 `/github-webhook/` 경로만 Bypass 로 열어 둡니다.
+   ```bash
+   kubectl -n jenkins exec deploy/jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
+   ```
+
+2. **설치 마법사**: Install suggested plugins → 관리자 계정 `hseungjae` 생성 → Jenkins URL `https://jenkins.sjhan.com/`
+3. **Kubernetes 플러그인**: Jenkins 관리 → Plugins → Available plugins 에서 **Kubernetes** 설치 (Pipeline Graph View 도 없으면 같이 설치) → 재시작
+4. **Kubernetes cloud**: Jenkins 관리 → Clouds → New cloud → 이름 `kubernetes`, 종류 Kubernetes
+
+   | 항목 | 값 |
+   |---|---|
+   | Kubernetes URL | 비워 둠 (클러스터 안에서 `jenkins-admin` 계정으로 접속) |
+   | Kubernetes Namespace | `jenkins` (에이전트 파드가 `jenkins-deployer` 계정과 `ghcr-push` 시크릿을 같은 네임스페이스에서 씀) |
+   | Jenkins URL | `http://jenkins.jenkins.svc.cluster.local:8080` (에이전트는 터널을 거치지 않고 클러스터 안에서 붙음) |
+
+   **Test Connection** 이 `Connected to Kubernetes` 이면 저장합니다. Pod Template 은 만들지 않습니다(`agent-pod.yaml` 을 Jenkinsfile 이 직접 씀).
+5. **본체에서는 빌드하지 않기**: Jenkins 관리 → Nodes → Built-In Node → Configure → Number of executors `0`
+6. **보안 확인**: Jenkins 관리 → Security 에서 회원 가입(Allow users to sign up)과 익명 읽기(Allow anonymous read access)가 꺼져 있는지 확인합니다.
+7. **파이프라인 Job**: 새로운 Item → 이름 `rag-portfolio` → Pipeline
+
+   | 항목 | 값 |
+   |---|---|
+   | Triggers | Poll SCM `H/3 * * * *` (3분마다 확인) |
+   | Pipeline → Definition | Pipeline script from SCM |
+   | SCM | Git, `https://github.com/hseungjae/RAG-based-Portfolio.git` (공개 저장소라 Credentials 없음) |
+   | Branch Specifier | `*/main` |
+   | Script Path | `jenkins/Jenkinsfile` (Lightweight checkout 체크) |
+
+> 3분마다 확인하는 대신 push 즉시 빌드하려면 GitHub webhook(`https://jenkins.sjhan.com/github-webhook/`)을 쓸 수 있습니다. 이때는 Job 트리거를 "GitHub hook trigger for GITScm polling" 으로 바꾸고, Access 정책에서 `/github-webhook/` 경로만 Bypass 로 열어 둡니다.
 
 ### 8-4. 첫 빌드
 
