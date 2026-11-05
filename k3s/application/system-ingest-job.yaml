@@ -1,5 +1,5 @@
 # 자기소개 문서(dataset/profile)를 임베딩해 DB 에 넣는다. DB 가 아직 준비 전이면 실패 후 재시도한다.
-# 문서를 고쳐 다시 적재할 때: 이미지 다시 빌드·import → 이 Job 을 delete 후 다시 apply.
+# 자기소개 문서가 바뀌면 Jenkins 가 새 이미지로 이 Job 을 다시 실행한다 (jenkins/Jenkinsfile 의 Ingest profile 단계).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -13,8 +13,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: ingest
-          image: system:latest
-          imagePullPolicy: Never
+          image: ghcr.io/hseungjae/rag-based-portfolio/system:latest
           command: ["python", "-m", "scripts.ingest"]
           envFrom:
             - secretRef:
