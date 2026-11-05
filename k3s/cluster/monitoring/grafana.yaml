@@ -34,7 +34,7 @@ data:
       - name: rag-portfolio
         folder: RAG Portfolio
         type: file
-        # 대시보드는 저장소의 k3s/monitoring/dashboards/*.json 이 원본이다. 화면에서 고친 내용은 저장되지 않는다
+        # 대시보드는 저장소의 k3s/cluster/monitoring/dashboards/*.json 이 원본이다. 화면에서 고친 내용은 저장되지 않는다
         allowUiUpdates: false
         options:
           path: /var/lib/grafana/dashboards
