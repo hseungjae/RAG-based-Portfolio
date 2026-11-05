@@ -302,7 +302,7 @@ git push (main)
 
 - 빌드 에이전트는 빌드할 때만 파드로 떴다가 사라집니다. 이미지 빌드를 위해 BuildKit 컨테이너는 privileged 로 돕니다.
 - 에이전트 계정(`jenkins-deployer`)은 `rag-portfolio`의 Deployment 이미지 교체·롤백과 적재 Job 실행만 할 수 있습니다.
-- Jenkins 는 인터넷에 열지 않고 SSH 터널로만 접속합니다. 그래서 GitHub webhook 대신 3분마다 저장소를 확인합니다.
+- Jenkins 화면은 https://jenkins.sjhan.com (Cloudflare Tunnel)으로 접속합니다. 빌드 에이전트는 클러스터 안 주소로 Jenkins 에 붙습니다.
 
 ### 8-1. 처음 한 번만: GHCR 토큰과 ghcr-push 시크릿 (Mac 에서)
 
@@ -342,13 +342,27 @@ Jenkins 본체는 직접 설치합니다. `jenkins/Jenkinsfile` 이 돌려면 �
 | Job → Pipeline | Pipeline script from SCM → Git `https://github.com/hseungjae/RAG-based-Portfolio.git`, 브랜치 `*/main`, Script Path **`jenkins/Jenkinsfile`** |
 | Job → Build Triggers | Poll SCM `H/3 * * * *` (3분마다 확인) |
 
-### 8-3. 접속 (Mac 에서 SSH 터널)
+### 8-3. 접속 (jenkins.sjhan.com)
+
+터널 라우팅(`infra/cloudflared.yaml`)은 Jenkins 서비스가 `jenkins` 네임스페이스의 `jenkins:8080` 이라고 가정합니다. 이름이나 포트가 다르면 그 줄을 고칩니다.
+
+Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만들고, k3s-1 에서 터널 설정을 반영합니다.
 
 ```bash
-ssh -L 8080:localhost:8080 <k3s-1 SSH 접속 정보> 'kubectl -n jenkins port-forward svc/<Jenkins 서비스 이름> 8080:8080'
+cloudflared tunnel route dns rag-portfolio jenkins.sjhan.com        # Mac
+kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared   # k3s-1
 ```
 
-http://localhost:8080 에 설치할 때 만든 관리자 계정으로 로그인합니다.
+https://jenkins.sjhan.com 에 설치할 때 만든 관리자 계정으로 로그인합니다. 처음 한 번 Jenkins 설정을 맞춥니다.
+
+| 위치 | 값 |
+|---|---|
+| Jenkins 관리 → System → Jenkins URL | `https://jenkins.sjhan.com/` (화면 링크와 리버스 프록시 경고용) |
+| Jenkins 관리 → Clouds → kubernetes → Jenkins URL | 클러스터 안 주소 그대로 `http://jenkins.jenkins.svc.cluster.local:8080` (에이전트는 터널을 거치지 않고 붙음) |
+
+> Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 꼭 겁니다 (무료). Jenkins 의 회원 가입과 익명 읽기도 꺼 둡니다.
+>
+> 3분마다 확인하는 대신 push 즉시 빌드하려면 GitHub webhook(`https://jenkins.sjhan.com/github-webhook/`)을 쓸 수 있습니다. 이때는 Jenkins 에 GitHub 플러그인을 설치해 Job 트리거를 "GitHub hook trigger for GITScm polling" 으로 바꾸고, Access 정책에서 `/github-webhook/` 경로만 Bypass 로 열어 둡니다.
 
 ### 8-4. 첫 빌드
 
