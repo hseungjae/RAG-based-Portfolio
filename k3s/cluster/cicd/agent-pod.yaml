@@ -4,9 +4,9 @@ kind: Pod
 spec:
   serviceAccountName: jenkins-deployer   # rag-portfolio 의 Deployment·Job 만 바꿀 수 있다 (deployer-rbac.yaml)
   containers:
-    # Jenkins 와 통신하고 git checkout 을 한다 (이미지는 Helm 차트 기본 에이전트와 같은 버전)
+    # Jenkins 와 통신하고 git checkout 을 한다.
+    # 이미지를 비워 두면 Kubernetes 플러그인이 자기 버전에 맞는 jenkins/inbound-agent 를 넣는다
     - name: jnlp
-      image: jenkins/inbound-agent:3395.v6e5377b_0fb_3c-2-jdk25
       resources:
         requests:
           cpu: "100m"
