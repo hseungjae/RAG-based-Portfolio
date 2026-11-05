@@ -161,7 +161,7 @@ main 에 push 하면 Jenkins 가 3분 안에 알아채서 **바뀐 이미지만*
 
 ```bash
 cd k3s && mkdir -p secrets
-read -rsp "GEMINI_API_KEY: " KEY && echo
+printf 'GEMINI_API_KEY: ' && read -rs KEY && echo   # bash·zsh 공통
 printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: system-secret\n  namespace: rag-portfolio\ntype: Opaque\nstringData:\n  GEMINI_API_KEY: "%s"\n' "$KEY" > secrets/system-secret.yaml && unset KEY
 kubeseal --cert sealed-secret.pem -oyaml < secrets/system-secret.yaml > sealedsecret/system-sealedsecret.yaml
 rm -f secrets/*-secret.yaml
@@ -310,15 +310,18 @@ git push (main)
 2. 저장소 루트에서 토큰을 봉인합니다. 토큰은 화면과 셸 기록에 남지 않습니다.
 
 ```bash
-read -rsp "GHCR 토큰: " GHCR_TOKEN && echo
-kubectl create secret docker-registry ghcr-push -n jenkins \
+printf 'GHCR 토큰: ' && read -rs GHCR_TOKEN && echo   # bash·zsh 공통 (zsh 에서는 read -p 가 동작하지 않음)
+KUBECONFIG=/dev/null kubectl create secret docker-registry ghcr-push -n jenkins \
   --docker-server=ghcr.io --docker-username=hseungjae --docker-password="$GHCR_TOKEN" \
   --dry-run=client -o yaml \
   | kubeseal --cert k3s/sealed-secret.pem -oyaml > k3s/sealedsecret/ghcr-push-sealedsecret.yaml
 unset GHCR_TOKEN
+grep -E "kind:|namespace:|dockerconfigjson" k3s/sealedsecret/ghcr-push-sealedsecret.yaml   # 세 줄이 보여야 정상
 ```
 
-3. `k3s/sealedsecret/ghcr-push-sealedsecret.yaml` 을 커밋·push 합니다. 토큰이 만료되면 같은 방법으로 다시 봉인합니다.
+`KUBECONFIG=/dev/null` 은 kubectl 이 Mac 에 설정된 다른 클러스터를 읽지 않게 합니다. 봉인은 저장소의 k3s 공개 인증서로만 하므로 클러스터 연결이 필요 없습니다.
+
+3. 확인 결과가 정상이면 `k3s/sealedsecret/ghcr-push-sealedsecret.yaml` 을 커밋·push 합니다. 토큰이 만료되면 같은 방법으로 다시 봉인합니다.
 
 ### 8-2. 설치 (k3s-1)
 
