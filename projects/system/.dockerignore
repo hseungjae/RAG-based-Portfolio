@@ -3,3 +3,7 @@
 **/.venv
 **/__pycache__
 **/.DS_Store
+# 테스트는 CI(.github/workflows/ci.yml)에서만 돌린다
+tests/
+pytest.ini
+requirements-dev.txt
