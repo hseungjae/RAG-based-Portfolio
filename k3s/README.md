@@ -153,7 +153,7 @@ kubectl -n rag-portfolio logs job/system-ingest  # "N개 청크를 저장했습�
 
 ## 3. 코드 · 문서 수정 후 다시 배포
 
-main 에 push 하면 Jenkins 가 3분 안에 알아채서 **바뀐 이미지만** 빌드·배포합니다. 자기소개 문서(`projects/system/dataset/profile`)가 바뀌었으면 적재 Job 도 다시 돌립니다. 서버에서 따로 할 일은 없습니다.
+main 에 push 하면 GitHub webhook 으로 Jenkins 가 바로 알아채서 **바뀐 이미지만** 빌드·배포합니다. 자기소개 문서(`projects/system/dataset/profile`)가 바뀌었으면 적재 Job 도 다시 돌립니다. 서버에서 따로 할 일은 없습니다.
 
 - 진행 상황: Jenkins 화면(8-3)의 `rag-portfolio` Job
 - 새 파드가 5분 안에 준비되지 않으면 Jenkins 가 이전 버전으로 되돌리고 빌드를 실패로 표시합니다.
@@ -298,7 +298,7 @@ kubectl -n monitoring get secret grafana-secret -o jsonpath='{.data.GF_SECURITY_
 ```
 git push (main)
   ├─ GitHub Actions: 테스트·lint·빌드 검사 (.github/workflows/ci.yml)
-  └─ Jenkins (3분마다 확인, jenkins/Jenkinsfile)
+  └─ GitHub webhook → Jenkins (push 즉시, jenkins/Jenkinsfile)
        ├─ 마지막 성공 빌드 이후 바뀐 폴더 확인 (projects/system, projects/react-app, dataset)
        ├─ BuildKit 으로 이미지 빌드 → GHCR push (커밋 해시 태그 + latest, 빌드 캐시도 GHCR)
        ├─ kubectl 로 이미지 교체 → 5분 안에 준비되지 않으면 이전 버전으로 롤백
@@ -383,17 +383,33 @@ kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout 
 
    | 항목 | 값 |
    |---|---|
-   | Triggers | Poll SCM `H/3 * * * *` (3분마다 확인) |
+   | Triggers | **GitHub hook trigger for GITScm polling** 체크 (webhook 으로 push 즉시 빌드, 8-4)<br>**Poll SCM** `H/30 * * * *` 도 체크 (webhook 이 빠졌을 때 30분 안에 따라잡는 예비용) |
    | Pipeline → Definition | Pipeline script from SCM |
    | SCM | Git, `https://github.com/hseungjae/RAG-based-Portfolio.git` (공개 저장소라 Credentials 없음) |
    | Branch Specifier | `*/main` |
    | Script Path | `jenkins/Jenkinsfile` (Lightweight checkout 체크) |
 
-> 3분마다 확인하는 대신 push 즉시 빌드하려면 GitHub webhook(`https://jenkins.sjhan.com/github-webhook/`)을 쓸 수 있습니다. 이때는 Job 트리거를 "GitHub hook trigger for GITScm polling" 으로 바꾸고, Access 정책에서 `/github-webhook/` 경로만 Bypass 로 열어 둡니다.
+### 8-4. GitHub webhook (push 즉시 빌드)
 
-### 8-4. 첫 빌드
+GitHub 이 push 될 때마다 Jenkins 에 알려 줍니다. 받는 쪽은 GitHub 플러그인(설치 마법사의 suggested plugins 에 포함)입니다.
 
-1. Jenkins 화면에서 `rag-portfolio` → **지금 빌드**(Build Now). 3분마다 확인하는 자동 빌드는 한 번 빌드한 뒤부터 동작합니다.
+1. **Cloudflare Access 예외**: Zero Trust → Access → Applications 에서 `jenkins.sjhan.com` 의 경로 `/github-webhook/` 로 Application 을 하나 더 만들고, 정책을 Action **Bypass**, Include **Everyone** 으로 둡니다. 나머지 경로는 계속 본인 이메일만 들어갈 수 있습니다.
+2. **GitHub 저장소** → Settings → Webhooks → Add webhook
+
+   | 항목 | 값 |
+   |---|---|
+   | Payload URL | `https://jenkins.sjhan.com/github-webhook/` |
+   | Content type | `application/json` |
+   | Which events | Just the push event |
+
+3. 저장 직후 GitHub 이 보내는 시험 요청(ping)이 Webhooks → Recent Deliveries 에 초록 체크(200)로 보이면 됩니다.
+
+> `/github-webhook/` 은 "새 커밋이 있다"는 신호만 받습니다. Jenkins 는 Job 에 등록된 GitHub 저장소에서 직접 코드를 가져오므로, 이 경로로 다른 코드를 실행시킬 수는 없습니다.
+
+
+### 8-5. 첫 빌드
+
+1. Jenkins 화면에서 `rag-portfolio` → **지금 빌드**(Build Now). webhook 과 Poll SCM 으로 시작되는 자동 빌드는 Jenkins 가 Job 의 저장소를 알게 되는 첫 빌드 뒤부터 동작합니다.
 2. 첫 빌드는 이미지 2개를 모두 빌드합니다. GHCR 패키지는 처음에 **Private** 로 만들어져 노드가 받지 못하므로, Build 단계가 끝나면 GitHub 프로필 → Packages → `rag-based-portfolio/system`, `rag-based-portfolio/react-app` 각각 Package settings → Change visibility → **Public** 으로 바꿉니다.
 3. Deploy 단계가 그 전에 실패했다면 이전 버전으로 자동 롤백되어 서비스는 그대로입니다. Public 으로 바꾼 뒤 다시 **지금 빌드** 를 누릅니다.
 
