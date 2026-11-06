@@ -1,0 +1,17 @@
+# 클러스터 안 주소: react-app.rag-portfolio.svc.cluster.local
+#   80 → 채팅 화면 (cloudflared 가 chat.sjhan.com 으로 연결, k3s/infra/cloudflared/configmap.yaml)
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-app
+  namespace: rag-portfolio
+  labels:
+    app: react-app
+spec:
+  selector:
+    app: react-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP
