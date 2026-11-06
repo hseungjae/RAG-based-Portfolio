@@ -1,0 +1,39 @@
+# Grafana 가 뜰 때 자동으로 등록하는 데이터 소스와 대시보드 목록.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: monitoring
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      # 노드·파드 자원, API 요청·오류 지표
+      - name: VictoriaMetrics
+        uid: vm
+        type: prometheus
+        access: proxy
+        url: http://victoria-metrics.monitoring.svc:8428
+        isDefault: true
+      # 질문 통계 (system 이 chat_log 테이블에 쌓는 질문 기록, 읽기 전용 계정)
+      - name: PostgreSQL
+        uid: pg
+        type: grafana-postgresql-datasource
+        url: postgres.rag-portfolio.svc.cluster.local:5432
+        user: grafana_ro
+        jsonData:
+          database: ${GRAFANA_DB_NAME}
+          sslmode: disable
+          postgresVersion: 1700
+        secureJsonData:
+          password: ${GRAFANA_DB_PASSWORD}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: rag-portfolio
+        folder: RAG Portfolio
+        type: file
+        # 대시보드는 저장소의 k3s/cluster/monitoring/grafana/dashboards/*.json 이 원본이다. 화면에서 고친 내용은 저장되지 않는다
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards
