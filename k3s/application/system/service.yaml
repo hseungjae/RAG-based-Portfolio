@@ -1,0 +1,17 @@
+# 클러스터 안 주소: system.rag-portfolio.svc.cluster.local
+#   80 → 컨테이너 8000, 챗봇 API (react-app 의 nginx 가 /api 요청을 넘긴다)
+apiVersion: v1
+kind: Service
+metadata:
+  name: system
+  namespace: rag-portfolio
+  labels:
+    app: system
+spec:
+  selector:
+    app: system
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
