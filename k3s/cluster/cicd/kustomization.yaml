@@ -5,8 +5,8 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - service-account.yaml   # Jenkins 본체: 에이전트 파드 생성·삭제
-  - deployer-rbac.yaml     # 에이전트 파드: rag-portfolio 배포
+  - service-account.yaml         # Jenkins 본체: 에이전트 파드 생성·삭제
+  - agent-service-account.yaml   # 에이전트 파드: rag-portfolio 배포
   - volume.yaml
   - deployment.yaml
   - service.yaml
