@@ -1,0 +1,23 @@
+# Cloudflare Tunnel(rag-portfolio) 설정. 주소마다 연결할 서비스:
+#   chat.sjhan.com    → react-app 서비스(nginx, /api 는 system 으로)
+#   grafana.sjhan.com → monitoring 네임스페이스의 grafana 서비스 (k3s/cluster/monitoring/grafana/service.yaml)
+#   jenkins.sjhan.com → jenkins 네임스페이스의 jenkins 서비스 (k3s/cluster/cicd/service.yaml)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: rag-portfolio
+data:
+  config.yml: |
+    tunnel: 187ee1ae-4498-4b5d-9346-cbfb46de41fe
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    metrics: 0.0.0.0:2000
+    no-autoupdate: true
+    ingress:
+      - hostname: chat.sjhan.com
+        service: http://react-app:80
+      - hostname: grafana.sjhan.com
+        service: http://grafana.monitoring.svc.cluster.local:80
+      - hostname: jenkins.sjhan.com
+        service: http://jenkins.jenkins.svc.cluster.local:8080
+      - service: http_status:404
