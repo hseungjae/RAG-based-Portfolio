@@ -55,7 +55,7 @@ pipeline {
           // 자기소개 문서가 바뀌었으면 새 이미지로 적재 Job 을 다시 돌린다
           sh """
             kubectl -n ${env.NAMESPACE} delete job system-ingest --ignore-not-found --wait
-            kubectl set image --local -o yaml -f k3s/application/system-ingest-job.yaml ingest=${env.REGISTRY}/system:${env.TAG} \\
+            kubectl set image --local -o yaml -f k3s/application/system/ingest-job.yaml ingest=${env.REGISTRY}/system:${env.TAG} \\
               | kubectl apply -f -
             kubectl -n ${env.NAMESPACE} wait --for=condition=complete job/system-ingest --timeout=10m
             kubectl -n ${env.NAMESPACE} logs job/system-ingest --tail=3
