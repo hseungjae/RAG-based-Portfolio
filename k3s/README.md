@@ -17,41 +17,66 @@ Ubuntu 서버 2대로 만든 k3s 클러스터에서 챗봇, DB, Cloudflare Tunne
 ```
 k3s/
 ├── README.md
-├── application/               # 애플리케이션
-│   ├── namespace.yaml         #   네임스페이스 rag-portfolio
-│   ├── react-app.yaml         #   채팅 화면(nginx) Deployment + Service(ClusterIP 80 → 80)
-│   ├── system.yaml            #   챗봇 API 서버 Deployment + Service(ClusterIP 80 → 8000)
-│   └── system-ingest-job.yaml #   자기소개 문서 임베딩·적재 Job
-├── infra/                     # 인프라
-│   ├── database.yaml          #   pgvector PostgreSQL StatefulSet + 헤드리스 Service + 초기 스키마 ConfigMap
-│   └── cloudflared.yaml       #   Cloudflare Tunnel Deployment + 설정 ConfigMap
-├── cluster/                   # 클러스터 공용 구성 (서비스와 따로 관리)
-│   ├── monitoring/            #   모니터링 (kubectl apply -k 로 적용, 7장)
-│   │   ├── kustomization.yaml       # 대시보드 JSON 을 ConfigMap 으로 묶음
-│   │   ├── namespace.yaml           # 네임스페이스 monitoring
-│   │   ├── victoria-metrics.yaml    # 지표 수집·저장 (Prometheus 호환, 15일 보관)
-│   │   ├── node-exporter.yaml       # 노드 CPU·메모리·디스크 (DaemonSet)
-│   │   ├── kube-state-metrics.yaml  # 파드 상태·재시작·limit
-│   │   ├── grafana.yaml             # Grafana + 데이터 소스·대시보드 자동 등록
-│   │   └── dashboards/              # 클러스터 자원, API 요청·오류, 질문 통계
-│   └── cicd/                  #   배포 자동화 (kubectl apply -k 로 적용, 8장)
-│       ├── kustomization.yaml       # 적용할 리소스 목록 (agent-pod.yaml 은 제외)
-│       ├── namespace.yaml           # 네임스페이스 jenkins
-│       ├── deployment.yaml          # Jenkins 본체 (LTS, k3s-2)
-│       ├── service.yaml             # jenkins:8080 화면, jenkins:50000 에이전트 접속
-│       ├── volume.yaml              # Jenkins 데이터 PVC 4Gi
-│       ├── service-account.yaml     # Jenkins 본체 권한: 에이전트 파드 생성·삭제
-│       ├── agent-pod.yaml           # 빌드 때만 뜨는 에이전트 파드 (BuildKit, kubectl)
-│       └── deployer-rbac.yaml       # 에이전트 권한: rag-portfolio 이미지 교체·롤백·적재 Job
-├── sealedsecret/              # Sealed Secrets로 암호화한 시크릿 (커밋해도 안전)
-│   ├── system-sealedsecret.yaml       # GEMINI_API_KEY
-│   ├── database-sealedsecret.yaml     # POSTGRES_USER/PASSWORD/DB, DATABASE_URL
-│   ├── cloudflared-sealedsecret.yaml  # 터널 자격 증명(credentials.json)
-│   ├── grafana-sealedsecret.yaml      # Grafana 관리자 비밀번호, DB 읽기 전용 계정
-│   └── ghcr-push-sealedsecret.yaml    # GHCR 이미지 push 토큰 (8-1 에서 만듦)
-└── sealed-secret.pem          # 봉인용 공개 인증서 (커밋해도 안전)
+├── application/                       # 애플리케이션 (네임스페이스 rag-portfolio)
+│   ├── kustomization.yaml
+│   ├── namespace.yaml
+│   ├── system/                        #   챗봇 API 서버
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml               #     ClusterIP 80 → 8000
+│   │   └── ingest-job.yaml            #     자기소개 문서 임베딩·적재 Job
+│   └── react-app/                     #   채팅 화면 (nginx)
+│       ├── deployment.yaml
+│       └── service.yaml               #     ClusterIP 80 → 80
+├── infra/                             # 인프라 (네임스페이스 rag-portfolio)
+│   ├── kustomization.yaml
+│   ├── database/                      #   pgvector PostgreSQL
+│   │   ├── configmap.yaml             #     초기 스키마
+│   │   ├── statefulset.yaml           #     데이터 PVC 2Gi 포함
+│   │   └── service.yaml               #     헤드리스 5432
+│   └── cloudflared/                   #   Cloudflare Tunnel
+│       ├── configmap.yaml             #     주소별 연결 서비스 (chat, grafana, jenkins)
+│       └── deployment.yaml
+├── cluster/                           # 클러스터 공용 구성 (서비스와 따로 관리)
+│   ├── monitoring/                    #   모니터링 (7장)
+│   │   ├── kustomization.yaml         #     대시보드 JSON 을 ConfigMap 으로 묶음
+│   │   ├── namespace.yaml             #     네임스페이스 monitoring
+│   │   ├── victoria-metrics/          #     지표 수집·저장 (Prometheus 호환, 15일 보관)
+│   │   │   ├── service-account.yaml   #       노드·파드 조회, cAdvisor 읽기 권한
+│   │   │   ├── configmap.yaml         #       수집 대상
+│   │   │   ├── statefulset.yaml       #       데이터 PVC 2Gi 포함
+│   │   │   └── service.yaml
+│   │   ├── node-exporter/             #     노드 CPU·메모리·디스크
+│   │   │   └── daemonset.yaml
+│   │   ├── kube-state-metrics/        #     파드 상태·재시작·limit
+│   │   │   ├── service-account.yaml
+│   │   │   ├── deployment.yaml
+│   │   │   └── service.yaml
+│   │   └── grafana/                   #     Grafana
+│   │       ├── configmap.yaml         #       데이터 소스·대시보드 자동 등록
+│   │       ├── volume.yaml            #       데이터 PVC 1Gi
+│   │       ├── deployment.yaml
+│   │       ├── service.yaml
+│   │       └── dashboards/            #       클러스터 자원, API 요청·오류, 질문 통계
+│   └── cicd/                          #   배포 자동화 (8장)
+│       ├── kustomization.yaml         #     적용할 리소스 목록 (agent-pod.yaml 은 제외)
+│       ├── namespace.yaml             #     네임스페이스 jenkins
+│       ├── service-account.yaml       #     Jenkins 본체 권한: 에이전트 파드 생성·삭제
+│       ├── volume.yaml                #     Jenkins 데이터 PVC 4Gi
+│       ├── deployment.yaml            #     Jenkins 본체 (LTS, k3s-2)
+│       ├── service.yaml               #     jenkins:8080 화면, jenkins:50000 에이전트 접속
+│       ├── agent-pod.yaml             #     빌드 때만 뜨는 에이전트 파드 (BuildKit, kubectl)
+│       └── agent-service-account.yaml #     에이전트 권한: rag-portfolio 이미지 교체·롤백·적재 Job
+├── sealedsecret/                      # Sealed Secrets로 암호화한 시크릿 (커밋해도 안전)
+│   ├── system-sealedsecret.yaml       #   GEMINI_API_KEY
+│   ├── database-sealedsecret.yaml     #   POSTGRES_USER/PASSWORD/DB, DATABASE_URL
+│   ├── cloudflared-sealedsecret.yaml  #   터널 자격 증명(credentials.json)
+│   ├── grafana-sealedsecret.yaml      #   Grafana 관리자 비밀번호, DB 읽기 전용 계정
+│   └── ghcr-push-sealedsecret.yaml    #   GHCR 이미지 push 토큰 (8-1 에서 만듦)
+└── sealed-secret.pem                  # 봉인용 공개 인증서 (커밋해도 안전)
 ```
 
+- 구성 요소마다 폴더를 두고, 그 안에서 리소스 종류별로 파일을 나눕니다: `deployment.yaml`·`statefulset.yaml`·`daemonset.yaml`(워크로드), `service.yaml`, `configmap.yaml`, `volume.yaml`(PVC), `service-account.yaml`(계정과 Role 권한).
+- `application/`, `infra/`, `cluster/monitoring/`, `cluster/cicd/` 는 `kustomization.yaml` 이 있어 폴더째 `kubectl apply -k` 로 적용합니다. `sealedsecret/` 은 `kubectl apply -f` 로 적용합니다.
 - 시크릿은 클러스터의 sealed-secrets 컨트롤러 공개키로 암호화해 `sealedsecret/`에 둡니다. 컨트롤러가 클러스터 안에서만 풀어 진짜 Secret을 만듭니다.
 - 평문 시크릿은 봉인할 때만 `k3s/secrets/`에 잠깐 만들고 지웁니다. 이 폴더는 `.gitignore`로 커밋되지 않습니다.
 - 이미지 2개(`system`, `react-app`)는 Jenkins 가 빌드해 GHCR(`ghcr.io/hseungjae/rag-based-portfolio/*`, 공개)에 올리고, 노드는 GHCR 에서 받습니다 (8장).
@@ -132,10 +157,10 @@ chmod 600 ~/sealed-secrets-key-backup.yaml
 적용 순서는 네임스페이스 → 시크릿 → 인프라 → 애플리케이션입니다.
 
 ```bash
-kubectl apply -f k3s/application/namespace.yaml -f k3s/cluster/monitoring/namespace.yaml
+kubectl apply -f k3s/application/namespace.yaml -f k3s/cluster/monitoring/namespace.yaml -f k3s/cluster/cicd/namespace.yaml
 kubectl apply -f k3s/sealedsecret/
-kubectl apply -f k3s/infra/
-kubectl apply -f k3s/application/
+kubectl apply -k k3s/infra/
+kubectl apply -k k3s/application/
 kubectl apply -k k3s/cluster/monitoring/
 ```
 
@@ -158,7 +183,7 @@ main 에 push 하면 GitHub webhook 으로 Jenkins 가 바로 알아채서 **바
 - 진행 상황: Jenkins 화면(8-3)의 `rag-portfolio` Job
 - 새 파드가 5분 안에 준비되지 않으면 Jenkins 가 이전 버전으로 되돌리고 빌드를 실패로 표시합니다.
 - 직접 되돌리기: `kubectl -n rag-portfolio rollout undo deployment/system` (react-app 도 같은 방식)
-- k3s 매니페스트(`k3s/` 아래 yaml)를 고친 것은 자동 반영되지 않으니 `kubectl apply` 로 직접 적용합니다. 이때 이미지가 `:latest` 로 바뀌지만, Jenkins 가 커밋 태그와 함께 `latest` 도 올리므로 내용은 같습니다.
+- k3s 매니페스트(`k3s/` 아래 yaml)를 고친 것은 자동 반영되지 않으니 `kubectl apply -k k3s/application/` 처럼 고친 폴더를 직접 적용합니다. 이때 이미지가 `:latest` 로 바뀌지만, Jenkins 가 커밋 태그와 함께 `latest` 도 올리므로 내용은 같습니다.
 
 ## 4. 시크릿 값 바꾸기 (다시 봉인)
 
@@ -235,7 +260,7 @@ https://grafana.sjhan.com (Cloudflare Tunnel)
 | API 요청·오류 | VictoriaMetrics | 경로·상태 코드별 요청 수, 429, 첫 응답·전체 답변 지연, 답변 결과(ok/error/cancelled) |
 | 질문 통계 | PostgreSQL | 질문·방문자 수, 시간대별 질문, 자주 나온 질문, 근거가 부족했던 질문, 실패한 질문, 최근 질문 |
 
-- 대시보드 원본은 `cluster/monitoring/dashboards/*.json`입니다. Grafana 화면에서 고쳐도 저장되지 않으니, 화면에서 고친 뒤 JSON 을 내보내 이 파일을 바꾸고 `kubectl apply -k k3s/cluster/monitoring/` 합니다.
+- 대시보드 원본은 `cluster/monitoring/grafana/dashboards/*.json`입니다. Grafana 화면에서 고쳐도 저장되지 않으니, 화면에서 고친 뒤 JSON 을 내보내 이 파일을 바꾸고 `kubectl apply -k k3s/cluster/monitoring/` 합니다.
 - `/metrics` 는 nginx 가 넘기지 않으므로 외부에서는 볼 수 없습니다.
 - 질문 기록(`chat_log`)은 system 이 시작할 때 테이블을 만들고, 답변이 끝날 때마다 한 줄씩 저장합니다. 방문자 IP는 해시만 저장합니다.
 
@@ -267,7 +292,7 @@ kubectl apply -f sealedsecret/grafana-sealedsecret.yaml && cd ..
 
 ### 7-2. 처음 한 번만: grafana.sjhan.com 연결
 
-Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만듭니다. 터널 라우팅은 `infra/cloudflared.yaml`에 이미 들어 있습니다.
+Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만듭니다. 터널 라우팅은 `infra/cloudflared/configmap.yaml`에 이미 들어 있습니다.
 
 ```bash
 cloudflared tunnel route dns rag-portfolio grafana.sjhan.com
@@ -279,18 +304,18 @@ Grafana 로그인 화면이 인터넷에 열리므로, Cloudflare 대시보드 *
 
 ```bash
 kubectl apply -k k3s/cluster/monitoring/
-kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared
+kubectl apply -f k3s/infra/cloudflared/configmap.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared
 kubectl -n monitoring get pods -o wide
 ```
 
-https://grafana.sjhan.com 에 `hseungjae`(`grafana.yaml`의 `GF_SECURITY_ADMIN_USER`)로 로그인합니다. 비밀번호 확인:
+https://grafana.sjhan.com 에 `hseungjae`(`grafana/deployment.yaml`의 `GF_SECURITY_ADMIN_USER`)로 로그인합니다. 비밀번호 확인:
 
 ```bash
 kubectl -n monitoring get secret grafana-secret -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d; echo
 ```
 
 > 관리자 아이디·비밀번호(`GF_SECURITY_ADMIN_USER`, `GF_SECURITY_ADMIN_PASSWORD`)는 Grafana 가 **처음 뜰 때만** 적용되고, 그 뒤로는 Grafana 저장소(PVC)에 있는 값을 씁니다.
-> 나중에 바꿀 때는 Grafana 화면(프로필 → Change password, Administration → Users)이나 API 로 계정을 바꾸고, 다음에 새로 설치할 때도 같도록 `grafana.yaml`과 시크릿도 함께 고쳐 둡니다.
+> 나중에 바꿀 때는 Grafana 화면(프로필 → Change password, Administration → Users)이나 API 로 계정을 바꾸고, 다음에 새로 설치할 때도 같도록 `grafana/deployment.yaml`과 시크릿도 함께 고쳐 둡니다.
 > 비밀번호 한 값만 다시 봉인하려면: `printf %s '<새 비밀번호>' | kubeseal --raw --scope strict --name grafana-secret --namespace monitoring --cert k3s/sealed-secret.pem` 결과로 `sealedsecret/grafana-sealedsecret.yaml`의 해당 줄을 바꿉니다.
 
 ## 8. 배포 자동화 (Jenkins)
@@ -343,11 +368,11 @@ kubectl -n jenkins get secret ghcr-push   # 시크릿이 풀렸는지 확인
 
 | 파일 | 내용 |
 |---|---|
+| `service-account.yaml` | Jenkins 본체 계정 `jenkins-admin`: `jenkins` 네임스페이스의 파드 생성·삭제·exec 만 |
+| `volume.yaml` | `/var/jenkins_home` PVC 4Gi |
 | `deployment.yaml` | Jenkins LTS(`jenkins/jenkins:2.580.2-lts-jdk21`), k3s-2 고정, 메모리 요청 768Mi · 상한 1.5Gi |
 | `service.yaml` | `jenkins:8080`(화면, 터널이 연결) · `jenkins:50000`(빌드 에이전트 접속) |
-| `volume.yaml` | `/var/jenkins_home` PVC 4Gi |
-| `service-account.yaml` | Jenkins 본체 계정 `jenkins-admin`: `jenkins` 네임스페이스의 파드 생성·삭제·exec 만 |
-| `deployer-rbac.yaml` | 빌드 에이전트 계정 `jenkins-deployer`: `rag-portfolio` 이미지 교체·롤백·적재 Job 만 |
+| `agent-service-account.yaml` | 빌드 에이전트 계정 `jenkins-deployer`: `rag-portfolio` 이미지 교체·롤백·적재 Job 만 |
 
 ### 8-3. 접속과 처음 설정
 
@@ -355,7 +380,7 @@ Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만들고, k
 
 ```bash
 cloudflared tunnel route dns rag-portfolio jenkins.sjhan.com        # Mac
-kubectl apply -f k3s/infra/cloudflared.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared   # k3s-1
+kubectl apply -f k3s/infra/cloudflared/configmap.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared   # k3s-1
 ```
 
 > Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. 접속하기 전에 Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 겁니다 (무료).
