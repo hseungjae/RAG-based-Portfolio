@@ -1,0 +1,17 @@
+# 클러스터 안 주소: victoria-metrics.monitoring.svc.cluster.local
+#   8428 → 지표 조회 (Grafana 데이터 소스, grafana/configmap.yaml)
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoria-metrics
+  namespace: monitoring
+  labels:
+    app: victoria-metrics
+spec:
+  selector:
+    app: victoria-metrics
+  ports:
+    - name: http
+      port: 8428
+      targetPort: 8428
+  type: ClusterIP
