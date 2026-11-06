@@ -1,5 +1,5 @@
 # 클러스터 안 주소: jenkins.jenkins.svc.cluster.local
-#   8080  → 화면·API (cloudflared 가 jenkins.sjhan.com 으로 연결, infra/cloudflared.yaml)
+#   8080  → 화면·API (cloudflared 가 jenkins.sjhan.com 으로 연결, k3s/infra/cloudflared/configmap.yaml)
 #   50000 → 빌드 에이전트 파드가 Jenkins 에 붙는 포트
 apiVersion: v1
 kind: Service
