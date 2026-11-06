@@ -2,15 +2,15 @@
 apiVersion: v1
 kind: Pod
 spec:
-  serviceAccountName: jenkins-deployer   # rag-portfolio 의 Deployment·Job 만 바꿀 수 있다 (deployer-rbac.yaml)
+  serviceAccountName: jenkins-deployer   # rag-portfolio 의 Deployment·Job 만 바꿀 수 있다 (agent-service-account.yaml)
   containers:
     # Jenkins 와 통신하고 git checkout 을 한다.
     # 이미지를 비워 두면 Kubernetes 플러그인이 자기 버전에 맞는 jenkins/inbound-agent 를 넣는다
     - name: jnlp
       resources:
         requests:
-          cpu: "100m"
           memory: "256Mi"
+          cpu: "100m"
         limits:
           memory: "512Mi"
     # 이미지 빌드·GHCR push. 파드 안에서 컨테이너 이미지를 만들려면 privileged 가 필요하다
@@ -20,11 +20,11 @@ spec:
         privileged: true
       resources:
         requests:
-          cpu: "250m"
           memory: "512Mi"
+          cpu: "250m"
         limits:
-          cpu: "1500m"
           memory: "2Gi"
+          cpu: "1500m"
       volumeMounts:
         - name: ghcr-push
           mountPath: /root/.docker   # buildctl 이 config.json 으로 GHCR 에 로그인한다
@@ -36,8 +36,8 @@ spec:
       args: ["infinity"]
       resources:
         requests:
-          cpu: "10m"
           memory: "32Mi"
+          cpu: "10m"
         limits:
           memory: "128Mi"
   volumes:
