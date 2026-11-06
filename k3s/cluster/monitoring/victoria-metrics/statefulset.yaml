@@ -1,0 +1,58 @@
+# 지표 수집·저장소. Prometheus 와 같은 방식(PromQL)으로 조회하지만 메모리를 훨씬 적게 쓴다.
+# 별도 수집기 없이 configmap.yaml 의 수집 대상에서 직접 수집하고, 15일 동안 보관한다.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: victoria-metrics
+  namespace: monitoring
+spec:
+  serviceName: victoria-metrics
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victoria-metrics
+  template:
+    metadata:
+      labels:
+        app: victoria-metrics
+    spec:
+      serviceAccountName: victoria-metrics
+      containers:
+        - name: victoria-metrics
+          image: victoriametrics/victoria-metrics:v1.155.0
+          args:
+            - -storageDataPath=/storage
+            - -retentionPeriod=15d
+            - -promscrape.config=/config/scrape.yml
+          ports:
+            - containerPort: 8428
+          resources:
+            requests:
+              memory: "96Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8428
+            periodSeconds: 10
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: victoria-metrics-scrape   # configmap.yaml
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
