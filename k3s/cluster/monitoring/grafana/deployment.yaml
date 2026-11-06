@@ -1,0 +1,85 @@
+# Grafana. https://grafana.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
+# 관리자 비밀번호와 DB 읽기 전용 계정 정보는 grafana-secret(k3s/sealedsecret/grafana-sealedsecret.yaml)으로 넣는다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  # 데이터 볼륨(ReadWriteOnce)을 한 파드만 쓸 수 있어서, 새 파드를 띄우기 전에 이전 파드를 내린다
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      securityContext:
+        fsGroup: 472   # PVC 를 grafana 사용자(472)가 쓸 수 있게 한다
+      containers:
+        - name: grafana
+          image: grafana/grafana:13.3.0
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: grafana-secret   # GF_SECURITY_ADMIN_PASSWORD, GRAFANA_DB_NAME, GRAFANA_DB_PASSWORD
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: hseungjae
+            - name: GF_SERVER_ROOT_URL
+              value: https://grafana.sjhan.com
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_REPORTING_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+              value: "false"
+            - name: GF_NEWS_NEWS_FEED_ENABLED
+              value: "false"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            - name: dashboards
+              mountPath: /var/lib/grafana/dashboards
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: grafana-data   # volume.yaml
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning   # configmap.yaml
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards   # dashboards/*.json (../kustomization.yaml 이 만든다)
