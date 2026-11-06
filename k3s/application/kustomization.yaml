@@ -1,0 +1,11 @@
+# kubectl apply -k k3s/application
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - system/deployment.yaml
+  - system/service.yaml
+  - system/ingest-job.yaml   # 자기소개 문서 적재. 문서가 바뀌면 jenkins/Jenkinsfile 이 다시 실행한다
+  - react-app/deployment.yaml
+  - react-app/service.yaml
