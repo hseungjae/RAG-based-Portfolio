@@ -1,0 +1,37 @@
+# 쿠버네티스 오브젝트 상태(파드 준비 여부, 재시작 횟수, 리소스 limit 등)를 지표로 바꿔 준다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        app: kube-state-metrics
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+          # 권한을 준 리소스만 감시해 메모리를 아낀다 (service-account.yaml)
+          args:
+            - --resources=nodes,pods,namespaces,persistentvolumeclaims,deployments,statefulsets,daemonsets,jobs,cronjobs
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "96Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
