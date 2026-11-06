@@ -1,0 +1,17 @@
+# 클러스터 안 주소: kube-state-metrics.monitoring.svc.cluster.local
+#   8080 → 지표 (VictoriaMetrics 가 수집, victoria-metrics/configmap.yaml)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: monitoring
+  labels:
+    app: kube-state-metrics
+spec:
+  selector:
+    app: kube-state-metrics
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
