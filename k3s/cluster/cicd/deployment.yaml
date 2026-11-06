@@ -1,3 +1,5 @@
+# Jenkins 본체(LTS). https://jenkins.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
+# 본체에서는 빌드하지 않고, 빌드할 때마다 에이전트 파드(agent-pod.yaml)를 띄운다.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,14 +29,14 @@ spec:
       containers:
         - name: jenkins
           image: jenkins/jenkins:2.580.2-lts-jdk21
-          env:
-            - name: JAVA_OPTS
-              value: "-XX:MaxRAMPercentage=50"   # 힙은 메모리 상한의 절반까지
           ports:
             - name: http
               containerPort: 8080
             - name: agent
               containerPort: 50000   # 빌드 에이전트 파드가 붙는 포트
+          env:
+            - name: JAVA_OPTS
+              value: "-XX:MaxRAMPercentage=50"   # 힙은 메모리 상한의 절반까지
           resources:
             requests:
               memory: "768Mi"
@@ -68,4 +70,4 @@ spec:
       volumes:
         - name: jenkins-data
           persistentVolumeClaim:
-            claimName: jenkins-pvc
+            claimName: jenkins-pvc   # volume.yaml
