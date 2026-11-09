@@ -1,6 +1,6 @@
 # 프로젝트
 
-## AWS EKS 기반 마이크로서비스 배포 및 모니터링 시스템 구축 (2025)
+## AWS EKS 기반 마이크로서비스 배포 및 모니터링 시스템 구축 (2026.04 ~ 2026.09)
 - 사용 서비스: AWS EKS, EC2, VPC, S3, CloudWatch, RDS, CloudFront, WAF
 - 기타 기술: k6, Docker, Prometheus, Grafana, Karpenter, KEDA, Helm
 - EKS on EC2 환경에서 3개의 마이크로서비스(API)를 단일 엔드포인트로 운영하고, RDS(Multi-AZ)를 연계한 고가용성 인프라를 구축했습니다.
