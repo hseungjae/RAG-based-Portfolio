@@ -30,8 +30,8 @@
 
 ## 경력 (회사, 직무, 재직 기간, 실무 경험, 지금 일하는 곳)
 - 회사: (주)퍼블릭에이아이 (서울특별시 서초구)
-- 직무: Cloud Engineer, Platform Engineering Team
-- 재직 기간: 2026년 9월 ~ 현재 (재직 중)
+- 직무: Platform Engineer (현장실습), Platform Engineering Team
+- 재직 기간: 2026년 9월 ~ 현재 (현장실습 중)
 - 사용 기술: NCP(네이버 클라우드), Kubernetes(쿠버네티스), Jenkins, Loki
 - 담당 업무: 공공기관 AI 서비스의 클라우드 인프라(NCP, Kubernetes) 운영, 컨테이너 이미지 저장소 이전과 CI/CD 구조 개편
 
