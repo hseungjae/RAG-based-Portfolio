@@ -20,6 +20,7 @@
 
 ## 포트폴리오 RAG 챗봇 chat.sjhan.com (2026)
 - 역할: 개인 프로젝트
-- 기술: FastAPI, Gemini API(답변 생성·임베딩), PostgreSQL + pgvector, HTML/CSS/JS
+- 기술: FastAPI, Gemini API(답변 생성·임베딩), PostgreSQL + pgvector, React(TypeScript), k3s, Jenkins, GHCR, VictoriaMetrics, Grafana
 - 내용: 지금 보고 계신 사이트입니다. 한승재의 자기소개 문서를 섹션 단위로 나눠 검색한 뒤, 관련 내용만 근거로 Gemini가 답변합니다.
 - 포인트: 문서를 섹션 단위로 임베딩해 pgvector에 저장하고, 질문과 코사인 유사도가 높은 섹션을 찾아 답변 근거로 씁니다. 답변마다 참고한 문서 출처를 함께 보여줍니다.
+- 배포: main 브랜치에 push하면 GitHub webhook으로 클러스터 안의 Jenkins가 바뀐 부분만 이미지로 빌드해 GHCR에 올리고 k3s에 배포합니다. 새 버전이 5분 안에 준비되지 않으면 이전 버전으로 자동으로 되돌리고, 자기소개 문서가 바뀌면 적재 Job도 다시 실행합니다.
