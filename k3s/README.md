@@ -251,7 +251,7 @@ VictoriaMetrics ──30초마다 수집──▶ node-exporter(노드) · kubel
       │
 Grafana ◀─┤  데이터 소스: VictoriaMetrics(지표), PostgreSQL(chat_log 질문 기록, 읽기 전용 계정)
       │
-https://grafana.sjhan.com (Cloudflare Tunnel)
+https://chat-grafana.sjhan.com (Cloudflare Tunnel)
 ```
 
 | 대시보드 | 데이터 | 내용 |
@@ -290,15 +290,15 @@ kubectl apply -f sealedsecret/grafana-sealedsecret.yaml && cd ..
 
 `sealedsecret/grafana-sealedsecret.yaml`은 커밋해 둡니다.
 
-### 7-2. 처음 한 번만: grafana.sjhan.com 연결
+### 7-2. 처음 한 번만: chat-grafana.sjhan.com 연결
 
 Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만듭니다. 터널 라우팅은 `infra/cloudflared/configmap.yaml`에 이미 들어 있습니다.
 
 ```bash
-cloudflared tunnel route dns rag-portfolio grafana.sjhan.com
+cloudflared tunnel route dns rag-portfolio chat-grafana.sjhan.com
 ```
 
-Grafana 로그인 화면이 인터넷에 열리므로, Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `grafana.sjhan.com`에 본인 이메일만 허용하는 정책을 거는 것을 권장합니다 (무료).
+Grafana 로그인 화면이 인터넷에 열리므로, Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `chat-grafana.sjhan.com`에 본인 이메일만 허용하는 정책을 거는 것을 권장합니다 (무료).
 
 ### 7-3. 배포와 접속
 
@@ -308,7 +308,7 @@ kubectl apply -f k3s/infra/cloudflared/configmap.yaml && kubectl -n rag-portfoli
 kubectl -n monitoring get pods -o wide
 ```
 
-https://grafana.sjhan.com 에 `hseungjae`(`grafana/deployment.yaml`의 `GF_SECURITY_ADMIN_USER`)로 로그인합니다. 비밀번호 확인:
+https://chat-grafana.sjhan.com 에 `hseungjae`(`grafana/deployment.yaml`의 `GF_SECURITY_ADMIN_USER`)로 로그인합니다. 비밀번호 확인:
 
 ```bash
 kubectl -n monitoring get secret grafana-secret -o jsonpath='{.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d; echo
@@ -332,7 +332,7 @@ git push (main)
 
 - 빌드 에이전트는 빌드할 때만 파드로 떴다가 사라집니다. 이미지 빌드를 위해 BuildKit 컨테이너는 privileged 로 돕니다.
 - 에이전트 계정(`jenkins-deployer`)은 `rag-portfolio`의 Deployment 이미지 교체·롤백과 적재 Job 실행만 할 수 있습니다.
-- Jenkins 화면은 https://jenkins.sjhan.com (Cloudflare Tunnel)으로 접속합니다. 빌드 에이전트는 클러스터 안 주소로 Jenkins 에 붙습니다.
+- Jenkins 화면은 https://chat-jenkins.sjhan.com (Cloudflare Tunnel)으로 접속합니다. 빌드 에이전트는 클러스터 안 주소로 Jenkins 에 붙습니다.
 
 ### 8-1. 처음 한 번만: GHCR 토큰과 ghcr-push 시크릿 (Mac 에서)
 
@@ -379,19 +379,19 @@ kubectl -n jenkins get secret ghcr-push   # 시크릿이 풀렸는지 확인
 Mac(`~/.cloudflared/cert.pem`이 있는 곳)에서 DNS 레코드를 만들고, k3s-1 에서 터널 설정을 반영합니다.
 
 ```bash
-cloudflared tunnel route dns rag-portfolio jenkins.sjhan.com        # Mac
+cloudflared tunnel route dns rag-portfolio chat-jenkins.sjhan.com        # Mac
 kubectl apply -f k3s/infra/cloudflared/configmap.yaml && kubectl -n rag-portfolio rollout restart deployment/cloudflared   # k3s-1
 ```
 
-> Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. 접속하기 전에 Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 겁니다 (무료).
+> Jenkins 는 로그인하면 파이프라인으로 클러스터에 배포까지 할 수 있으니, Grafana 보다 더 강하게 막아야 합니다. 접속하기 전에 Cloudflare 대시보드 **Zero Trust → Access → Applications**에서 `chat-jenkins.sjhan.com`에 본인 이메일만 허용하는 정책을 겁니다 (무료).
 
-1. **초기 비밀번호**: https://jenkins.sjhan.com 첫 화면(Unlock Jenkins)에 아래 값을 넣습니다.
+1. **초기 비밀번호**: https://chat-jenkins.sjhan.com 첫 화면(Unlock Jenkins)에 아래 값을 넣습니다.
 
    ```bash
    kubectl -n jenkins exec deploy/jenkins -- cat /var/jenkins_home/secrets/initialAdminPassword
    ```
 
-2. **설치 마법사**: Install suggested plugins → 관리자 계정 `hseungjae` 생성 → Jenkins URL `https://jenkins.sjhan.com/`
+2. **설치 마법사**: Install suggested plugins → 관리자 계정 `hseungjae` 생성 → Jenkins URL `https://chat-jenkins.sjhan.com/`
 3. **Kubernetes 플러그인**: Jenkins 관리 → Plugins → Available plugins 에서 **Kubernetes** 설치 (Pipeline Graph View 도 없으면 같이 설치) → 재시작
 4. **Kubernetes cloud**: Jenkins 관리 → Clouds → New cloud → 이름 `kubernetes`, 종류 Kubernetes
 
@@ -418,12 +418,12 @@ kubectl apply -f k3s/infra/cloudflared/configmap.yaml && kubectl -n rag-portfoli
 
 GitHub 이 push 될 때마다 Jenkins 에 알려 줍니다. 받는 쪽은 GitHub 플러그인(설치 마법사의 suggested plugins 에 포함)입니다.
 
-1. **Cloudflare Access 예외**: Zero Trust → Access → Applications 에서 `jenkins.sjhan.com` 의 경로 `/github-webhook/` 로 Application 을 하나 더 만들고, 정책을 Action **Bypass**, Include **Everyone** 으로 둡니다. 나머지 경로는 계속 본인 이메일만 들어갈 수 있습니다.
+1. **Cloudflare Access 예외**: Zero Trust → Access → Applications 에서 `chat-jenkins.sjhan.com` 의 경로 `/github-webhook/` 로 Application 을 하나 더 만들고, 정책을 Action **Bypass**, Include **Everyone** 으로 둡니다. 나머지 경로는 계속 본인 이메일만 들어갈 수 있습니다.
 2. **GitHub 저장소** → Settings → Webhooks → Add webhook
 
    | 항목 | 값 |
    |---|---|
-   | Payload URL | `https://jenkins.sjhan.com/github-webhook/` |
+   | Payload URL | `https://chat-jenkins.sjhan.com/github-webhook/` |
    | Content type | `application/json` |
    | Which events | Just the push event |
 
