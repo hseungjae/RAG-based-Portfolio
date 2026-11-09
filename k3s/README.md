@@ -178,7 +178,7 @@ kubectl -n rag-portfolio logs job/system-ingest  # "N개 청크를 저장했습�
 
 ## 3. 코드 · 문서 수정 후 다시 배포
 
-main 에 push 하면 GitHub webhook 으로 Jenkins 가 바로 알아채서 **바뀐 이미지만** 빌드·배포합니다. 자기소개 문서(`projects/system/dataset/profile`)가 바뀌었으면 적재 Job 도 다시 돌립니다. 서버에서 따로 할 일은 없습니다.
+main 에 push 하면 GitHub webhook 으로 Jenkins 가 바로 알아채서 **바뀐 이미지만** 빌드·배포합니다. 자기소개 문서(`projects/system/dataset/profile`)나 벡터를 만드는 코드(`src/chunk`, `src/embedding`, `src/retriever`, `src/settings.py`)가 바뀌었으면 적재 Job 도 다시 돌립니다. 서버에서 따로 할 일은 없습니다.
 
 - 진행 상황: Jenkins 화면(8-3)의 `rag-portfolio` Job
 - 새 파드가 5분 안에 준비되지 않으면 Jenkins 가 이전 버전으로 되돌리고 빌드를 실패로 표시합니다.
@@ -327,7 +327,7 @@ git push (main)
        ├─ 마지막 성공 빌드 이후 바뀐 폴더 확인 (projects/system, projects/react-app, dataset)
        ├─ BuildKit 으로 이미지 빌드 → GHCR push (커밋 해시 태그 + latest, 빌드 캐시도 GHCR)
        ├─ kubectl 로 이미지 교체 → 5분 안에 준비되지 않으면 이전 버전으로 롤백
-       └─ 자기소개 문서가 바뀌었으면 적재 Job 다시 실행
+       └─ 자기소개 문서나 청크·임베딩 코드가 바뀌었으면 적재 Job 다시 실행
 ```
 
 - 빌드 에이전트는 빌드할 때만 파드로 떴다가 사라집니다. 이미지 빌드를 위해 BuildKit 컨테이너는 privileged 로 돕니다.
