@@ -19,8 +19,8 @@ class RetrieverManager:
     async def ingest(self, profile_dir: Path) -> int:
         """마크다운 문서를 청크로 나눠 임베딩한 뒤 pgvector에 저장한다."""
         chunks = load_chunks(profile_dir)
-        # 섹션 제목도 함께 임베딩해야 "경력", "수상" 같은 질문이 잘 맞는다
-        embeddings = await self.embedder.embed([f"{c.title}\n{c.content}" for c in chunks], "document")
+        # 섹션 제목도 함께 임베딩해야 "경력", "수상" 같은 질문이 잘 맞는다 (gemini-embedding-2 권장 문서 형식)
+        embeddings = await self.embedder.embed([f"title: {c.title} | text: {c.content}" for c in chunks], "document")
         await self.repository.replace_all(chunks, embeddings)
         return len(chunks)
 

@@ -13,7 +13,8 @@ class Settings:
     # 무료 플랜 신규 키로 호출 가능한 모델 (2026-10 확인). 오래된 모델은 신규 사용자에게 404를 준다
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview")
+    # gemini-embedding-2-preview는 2026-11-06에 종료됐다. 모델을 바꾸면 문서를 다시 적재해야 한다
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "gemini-embedding-2")
     # deploy/local/postgresql/00-init.sql 의 vector(1024)와 같아야 한다
     embedding_dimension: int = 1024
     database_url: str = os.getenv("DATABASE_URL", "postgresql://hseungjae:skills53%23@localhost:5433/sjhan")

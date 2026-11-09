@@ -64,7 +64,7 @@ def test_ingest_embeds_title_with_content(tmp_path):
     count = asyncio.run(RetrieverManager(repo, embedder, top_k=3).ingest(tmp_path))
 
     assert count == 1
-    assert embedder.calls == [(["소개 > 경력\n클라우드 엔지니어"], "document")]
+    assert embedder.calls == [(["title: 소개 > 경력 | text: 클라우드 엔지니어"], "document")]
     chunks, embeddings = repo.saved
     assert [c.title for c in chunks] == ["소개 > 경력"]
     assert embeddings == [[0.0]]

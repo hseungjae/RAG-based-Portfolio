@@ -87,6 +87,7 @@ uv pip install -r requirements-dev.txt
 |---|---|
 | `test_chat_api.py` | `/api/chat` SSE 순서, `chat_log` 저장(ok·unanswered·error), 요청 검증, 요청 제한, 지표 |
 | `test_retriever.py` | 검색 결과 개수, 후속 질문 검색 섞기, 적재 시 제목+본문 임베딩 |
+| `test_embedding.py` | 질문 앞 검색 문구, `task_type` 미사용, 오류 상태 코드 전달 |
 | `test_rerank.py` | 섹션 제목 가산점, 상한, 불용어 |
 | `test_chunker.py` | `##` 섹션 분할, 실제 자기소개 문서 파싱 |
 | `test_prompt.py` | 거절 문장 판별, 문서 컨텍스트 구성 |
