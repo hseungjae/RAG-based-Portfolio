@@ -46,7 +46,7 @@ cp projects/system/.env.example projects/system/.env
 | `DATABASE_URL` | PostgreSQL 접속 주소 | `postgresql://hseungjae:skills53%23@localhost:5433/sjhan` |
 | `OWNER_NAME` | 화면과 답변에 쓰이는 이름 | `한승재` |
 | `GEMINI_MODEL` | 답변 생성 모델 | `gemini-3.5-flash-lite` |
-| `EMBEDDING_MODEL` | 임베딩 모델 | `gemini-embedding-2-preview` |
+| `EMBEDDING_MODEL` | 임베딩 모델 | `gemini-embedding-2` |
 
 > `.env`는 `.gitignore`에 들어 있어 GitHub에 올라가지 않습니다. API 키는 채팅·이슈·커밋 등 다른 곳에 붙여넣지 마세요.
 

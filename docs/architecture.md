@@ -14,7 +14,7 @@ sequenceDiagram
 
     Web->>Router: POST /api/chat {question, history}
     Router->>Retriever: search(question, 직전 질문)
-    Retriever->>Embed: 질문 임베딩 (task_type=RETRIEVAL_QUERY)
+    Retriever->>Embed: 질문 임베딩 ("task: search result | query: 질문")
     Embed-->>Retriever: 1024차원 벡터
     Retriever->>DB: ORDER BY embedding <=> 질문벡터 LIMIT 4
     DB-->>Retriever: 코사인 유사도 상위 4개 청크
@@ -39,10 +39,10 @@ sequenceDiagram
 
 ## 설계 결정
 
-- **pgvector 벡터 검색**: 문서 섹션과 질문을 Gemini 임베딩(`gemini-embedding-2-preview`, 1024차원)으로 변환하고, PostgreSQL의 pgvector로 코사인 유사도 검색을 합니다. 키워드가 달라도(예: "어디서 일해요?" ↔ "경력") 의미가 비슷하면 찾을 수 있습니다.
+- **pgvector 벡터 검색**: 문서 섹션과 질문을 Gemini 임베딩(`gemini-embedding-2`, 1024차원)으로 변환하고, PostgreSQL의 pgvector로 코사인 유사도 검색을 합니다. 키워드가 달라도(예: "어디서 일해요?" ↔ "경력") 의미가 비슷하면 찾을 수 있습니다.
 - **HNSW 인덱스와 실제 실행 계획**: 문서가 늘어날 경우를 대비해 HNSW 인덱스(`vector_cosine_ops`)를 만들어 두었지만, 현재 규모(29개 청크)에서는 Postgres가 인덱스 대신 **순차 스캔 후 정렬**을 선택합니다. `EXPLAIN`으로 `Seq Scan → Sort` 계획을, `pg_stat_user_indexes`로 인덱스 사용 횟수(`idx_scan = 0`)를 확인했습니다. 이 규모에서는 전체를 비교하는 쪽이 더 빠르고, HNSW 같은 근사 검색과 달리 결과도 정확하므로 그대로 둡니다. 청크가 수천 개 이상으로 늘어나면 플래너가 자동으로 인덱스를 쓰게 됩니다.
 - **하이브리드 검색 (벡터 + 제목 키워드)** (`src/retriever/rerank.py`): 벡터 검색으로 후보 10개를 뽑은 뒤, 질문의 단어가 섹션 제목에 있으면 가산점(단어당 0.05, 최대 0.1)을 줘서 다시 정렬하고 상위 4개를 씁니다. 임베딩 유사도는 섹션끼리 점수 차이가 작아서, "경력"처럼 짧은 질문이 기술 용어가 많은 긴 섹션에 묻히는 문제가 있었습니다. 조사가 붙은 단어("경력이")도 맞도록 앞부분부터 비교하고, "어떤", "경험"처럼 구분력이 없는 단어는 제외합니다.
-- **문서/질문 임베딩 구분**: `task_type`을 문서는 `RETRIEVAL_DOCUMENT`, 질문은 `RETRIEVAL_QUERY`로 나눠 검색 품질을 높였습니다.
+- **문서/질문 임베딩 구분**: `gemini-embedding-2`는 `task_type`을 받지 않아서, 용도를 텍스트 앞에 적어 보냅니다. 문서는 `title: 섹션 제목 | text: 본문`, 질문은 `task: search result | query: 질문` 형식입니다. 처음 쓰던 `gemini-embedding-2-preview`가 2026-11-06에 종료되면서 `task_type`을 넣은 요청이 모두 거절돼 이 방식으로 바꾸고 문서를 다시 적재했습니다.
 - **API 키 하나로 운영**: 답변 생성과 임베딩 모두 Gemini 무료 플랜을 써서 비용 없이 운영합니다. (처음엔 Voyage AI 임베딩을 썼지만, 결제수단 없이는 분당 3회로 제한돼 교체했습니다.)
 - **적재와 서빙 분리**: 임베딩 저장은 `scripts/ingest.py`로 따로 실행해서, 서버를 띄울 때마다 임베딩 API를 호출하지 않습니다.
 - **근거 기반 답변**: 문서에 없는 내용은 추측하지 않도록 지시하고, 답변마다 참고한 섹션을 화면에 표시합니다.
