@@ -1,5 +1,5 @@
 # 클러스터 안 주소: grafana.monitoring.svc.cluster.local
-#   80 → 컨테이너 3000, 화면 (cloudflared 가 grafana.sjhan.com 으로 연결, k3s/infra/cloudflared/configmap.yaml)
+#   80 → 컨테이너 3000, 화면 (cloudflared 가 chat-grafana.sjhan.com 으로 연결, k3s/infra/cloudflared/configmap.yaml)
 apiVersion: v1
 kind: Service
 metadata:
