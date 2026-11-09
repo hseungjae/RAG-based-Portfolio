@@ -1,4 +1,4 @@
-# Grafana. https://grafana.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
+# Grafana. https://chat-grafana.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
 # 관리자 비밀번호와 DB 읽기 전용 계정 정보는 grafana-secret(k3s/sealedsecret/grafana-sealedsecret.yaml)으로 넣는다.
 apiVersion: apps/v1
 kind: Deployment
@@ -33,7 +33,7 @@ spec:
             - name: GF_SECURITY_ADMIN_USER
               value: hseungjae
             - name: GF_SERVER_ROOT_URL
-              value: https://grafana.sjhan.com
+              value: https://chat-grafana.sjhan.com
             - name: GF_USERS_ALLOW_SIGN_UP
               value: "false"
             - name: GF_AUTH_ANONYMOUS_ENABLED
