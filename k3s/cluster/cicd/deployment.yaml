@@ -1,4 +1,4 @@
-# Jenkins 본체(LTS). https://jenkins.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
+# Jenkins 본체(LTS). https://chat-jenkins.sjhan.com 으로 Cloudflare Tunnel 을 통해 연다 (k3s/infra/cloudflared/configmap.yaml).
 # 본체에서는 빌드하지 않고, 빌드할 때마다 에이전트 파드(agent-pod.yaml)를 띄운다.
 apiVersion: apps/v1
 kind: Deployment
