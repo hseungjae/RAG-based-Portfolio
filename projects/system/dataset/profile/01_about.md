@@ -23,10 +23,11 @@
 ## 기술 스택
 - Cloud Infra: AWS, NCP
 - AWS: S3, EC2, ECR, ECS, EKS, ELB, CloudFront, Lambda, DynamoDB, DocumentDB, VPC
-- 컨테이너: Docker(도커), Kubernetes(쿠버네티스, k8s)
-- CNCF / 오픈소스: ExternalSecrets, Keycloak, OpenTelemetry, Fluent Bit/Fluentd, Falco, Loki, Grafana, Prometheus, KEDA, ArgoCD, Cilium, Helm, k6
+- 컨테이너: Docker(도커), Kubernetes(쿠버네티스, k8s), K3s
+- CNCF / 오픈소스: ExternalSecrets, Keycloak, OpenTelemetry, Fluent Bit/Fluentd, Falco, Loki, Grafana, Prometheus, VictoriaMetrics, KEDA, ArgoCD, Cilium, Helm, k6
 - CI/CD: GitHub Actions, CodePipeline, Jenkins
 - IaC: CloudFormation, Terraform(테라폼)
+- 백엔드 / DB: FastAPI, PostgreSQL(pgvector)
 
 ## 경력 (회사, 직무, 재직 기간, 실무 경험, 지금 일하는 곳)
 - 회사: (주)퍼블릭에이아이 (서울특별시 서초구)
@@ -47,12 +48,12 @@
 
 ## 경력 상세: 퍼블릭에이아이에서 한 일 (워커 노드 메모리 증설, 모니터링, 벡터 검색 데이터 적재)
 - 워커 노드 4대의 메모리를 16GB에서 32GB로 증설했습니다. 메모리 사용률이 높아 OOMKilled 위험이 있었고, 새 노드를 먼저 추가한 뒤 기존 노드를 한 대씩 drain하는 순서로 서비스 중단 없이 교체했습니다.
-- Prometheus와 Grafana Alloy 기반 모니터링 환경을 구축했습니다.
+- Prometheus와 Grafana Alloy 기반 모니터링 환경을 구축했습니다. 지원이 종료된 로그 수집기 Promtail을 Grafana Alloy로 교체하면서 기존 로그 수집 위치를 이어받도록 구성했고, Prometheus에는 영구 볼륨과 보존 정책을 설정해 파드가 재시작돼도 지표가 유지되도록 했습니다.
 - 7,700만 행 전체를 임베딩해 PostgreSQL(pgvector)에 적재하고(3일), HNSW 인덱스와 B-tree 인덱스를 생성했습니다(8시간).
 - DB 구간 검색 시간을 조회 규모별로 측정했습니다. 1만 건 안팎은 0.5~4초, 20만~44만 건은 1.5~13초(중간값 약 6.5초)였고, 같은 조건의 재조회는 ms 단위였습니다. 첫 조회 지연은 디스크에서 인덱스 페이지를 읽는 비용임을 확인했습니다.
 
 ## 자격증
 - AWS Certified Solutions Architect – Associate (SAA-C03)
 - 정보처리산업기사
-- 정보처리기능사
+- 프로그래밍기능사
 - 정보기기운용기능사
